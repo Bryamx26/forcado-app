@@ -1,6 +1,8 @@
 import express from 'express';
 import { menu, findItem } from './menu.js';
 import { store } from './store.js';
+import { brand } from './config.js';
+import { mountAuth, requireStaff } from './auth.js';
 
 const STATUSES = ['nouvelle', 'en_cours', 'prete', 'servie', 'annulee'];
 const round = (n) => Math.round(n * 100) / 100;
@@ -38,16 +40,54 @@ function buildLine(raw) {
 
 const app = express();
 app.use(express.json());
+mountAuth(app);
 
-app.get('/api/menu', (_req, res) => res.json(menu));
+// Les commandes de plus de 36 h restent stockées mais ne sont plus renvoyées au comptoir.
+const RECENT_MS = 36 * 60 * 60 * 1000;
 
-app.get('/api/orders', async (req, res, next) => {
+app.get('/api/config', (_req, res) => res.json(brand));
+
+app.get('/api/menu', async (_req, res, next) => {
   try {
-    let orders = await store.list();
-    if (req.query.ids) {
-      const ids = String(req.query.ids).split(',');
-      orders = orders.filter((o) => ids.includes(o.id));
-    }
+    const soldOut = new Set(await store.soldOut());
+    res.set('Cache-Control', 'no-store').json(
+      menu.map((cat) => ({
+        ...cat,
+        items: cat.items.map((i) => ({ ...i, image: i.image ?? `/produits/${i.id}.jpg`, soldOut: soldOut.has(i.id) })),
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.put('/api/menu/:itemId/availability', requireStaff, async (req, res, next) => {
+  if (!findItem(req.params.itemId)) return res.status(404).json({ error: 'Produit inconnu' });
+  try {
+    await store.setSoldOut(req.params.itemId, !req.body?.available);
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Suivi côté client : uniquement ses propres commandes, et seulement leur statut.
+app.get('/api/orders/track', async (req, res, next) => {
+  const ids = String(req.query.ids || '').split(',').filter(Boolean).slice(0, 20);
+  try {
+    const orders = await store.get(ids);
+    res.set('Cache-Control', 'no-store').json(
+      orders.map(({ id, number, table, status, total }) => ({ id, number, table, status, total })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/api/orders', requireStaff, async (_req, res, next) => {
+  try {
+    const since = Date.now() - RECENT_MS;
+    const orders = (await store.list()).filter((o) => new Date(o.createdAt).getTime() >= since);
     res.set('Cache-Control', 'no-store').json(orders);
   } catch (e) {
     next(e);
@@ -65,8 +105,13 @@ app.post('/api/orders', async (req, res, next) => {
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
-  const now = new Date().toISOString();
   try {
+    const soldOut = new Set(await store.soldOut());
+    const unavailable = built.find((l) => soldOut.has(l.itemId));
+    if (unavailable) {
+      return res.status(409).json({ error: `Désolé, « ${unavailable.name} » vient d'être épuisé. Retirez-le du panier.` });
+    }
+    const now = new Date().toISOString();
     const order = await store.create({
       id: crypto.randomUUID(),
       table,
@@ -82,11 +127,13 @@ app.post('/api/orders', async (req, res, next) => {
   }
 });
 
-app.patch('/api/orders/:id', async (req, res, next) => {
+app.patch('/api/orders/:id', requireStaff, async (req, res, next) => {
   const { status } = req.body || {};
   if (!STATUSES.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
+  const patch = { status, updatedAt: new Date().toISOString() };
+  if (status === 'en_cours' && req.staff.name) patch.handledBy = req.staff.name;
   try {
-    const order = await store.update(req.params.id, { status, updatedAt: new Date().toISOString() });
+    const order = await store.update(req.params.id, patch);
     if (!order) return res.status(404).json({ error: 'Commande introuvable' });
     res.json(order);
   } catch (e) {

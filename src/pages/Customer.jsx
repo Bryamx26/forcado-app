@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, euro, STATUS_LABELS } from '../api.js';
+import { useBrand } from '../brand.js';
 
 const storageKey = (table) => `forcado-orders-table-${table}`;
 
@@ -28,6 +29,16 @@ function optionSummary(item, selected) {
     .join(', ');
 }
 
+// Photo du produit si public/produits/<id>.jpg existe, sinon l'emoji.
+function ProductVisual({ item, className }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span className={className}>
+      {item.image && !failed ? <img src={item.image} alt="" loading="lazy" onError={() => setFailed(true)} /> : item.emoji}
+    </span>
+  );
+}
+
 function ItemSheet({ item, onClose, onAdd }) {
   const [selected, setSelected] = useState(() => {
     const init = {};
@@ -51,7 +62,7 @@ function ItemSheet({ item, onClose, onAdd }) {
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <button className="sheet-close" onClick={onClose} aria-label="Fermer">×</button>
-        <div className="sheet-emoji">{item.emoji}</div>
+        <ProductVisual item={item} className="sheet-emoji" />
         <h2>{item.name}</h2>
         <p className="muted">{item.description}</p>
 
@@ -111,7 +122,7 @@ function OrderTracker({ table }) {
       const ids = readMyOrders(table);
       if (!ids.length) return;
       try {
-        const data = await api.orders(ids);
+        const data = await api.track(ids);
         if (alive) setOrders(data.filter((o) => o.status !== 'servie' && o.status !== 'annulee').reverse());
       } catch {}
     };
@@ -138,7 +149,9 @@ function OrderTracker({ table }) {
 }
 
 export default function Customer({ table }) {
+  const brand = useBrand();
   const [menu, setMenu] = useState(null);
+  const [activeCat, setActiveCat] = useState(null);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(null);
   const [cart, setCart] = useState([]);
@@ -148,8 +161,29 @@ export default function Customer({ table }) {
   const [trackerKey, setTrackerKey] = useState(0);
 
   useEffect(() => {
-    api.menu().then(setMenu).catch(() => setError('Impossible de charger la carte.'));
+    const load = () =>
+      api
+        .menu()
+        .then((m) => {
+          setMenu(m);
+          setActiveCat((c) => c || m[0]?.id);
+        })
+        .catch(() => setError('Impossible de charger la carte.'));
+    load();
+    // Recharge la carte de temps en temps pour afficher les produits épuisés.
+    const t = setInterval(load, 30000);
+    return () => clearInterval(t);
   }, []);
+
+  const soldOutIds = useMemo(
+    () => new Set((menu || []).flatMap((c) => c.items.filter((i) => i.soldOut).map((i) => i.id))),
+    [menu],
+  );
+
+  const goTo = (catId) => {
+    setActiveCat(catId);
+    document.getElementById(`cat-${catId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const total = useMemo(() => cart.reduce((s, l) => s + l.price * l.qty, 0), [cart]);
   const count = cart.reduce((s, l) => s + l.qty, 0);
@@ -169,6 +203,7 @@ export default function Customer({ table }) {
       setTrackerKey((k) => k + 1);
     } catch (e) {
       setError(e.message);
+      api.menu().then(setMenu).catch(() => {});
     } finally {
       setSending(false);
     }
@@ -178,14 +213,24 @@ export default function Customer({ table }) {
     <div className="customer">
       <header className="c-header">
         <div>
-          <div className="logo">Forcado</div>
-          <div className="tagline">Pastelaria portuguesa</div>
+          <div className="logo">{brand.name}</div>
+          <div className="tagline">{brand.tagline}</div>
         </div>
         <div className="table-badge">
           <span>Table</span>
           <strong>{table}</strong>
         </div>
       </header>
+
+      {menu && menu.length > 1 && (
+        <nav className="cat-tabs">
+          {menu.map((cat) => (
+            <button key={cat.id} className={activeCat === cat.id ? 'on' : ''} onClick={() => goTo(cat.id)}>
+              {cat.name}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {placed && (
         <div className="confirm">
@@ -204,23 +249,32 @@ export default function Customer({ table }) {
       {!menu && !error && <p className="muted center">Chargement de la carte…</p>}
 
       {menu?.map((cat) => (
-        <section key={cat.id} className="category">
+        <section key={cat.id} id={`cat-${cat.id}`} className="category">
           <h2>{cat.name}</h2>
           <div className="items">
             {cat.items.map((item) => (
-              <button key={item.id} className="item" onClick={() => setOpen(item)}>
-                <span className="item-emoji">{item.emoji}</span>
+              <button
+                key={item.id}
+                className={`item ${item.soldOut ? 'item-out' : ''}`}
+                disabled={item.soldOut}
+                onClick={() => setOpen(item)}
+              >
+                <ProductVisual item={item} className="item-emoji" />
                 <span className="item-body">
                   <span className="item-name">{item.name}</span>
                   <span className="item-desc">{item.description}</span>
-                  <span className="item-price">{euro(item.price)}</span>
+                  <span className="item-price">{item.soldOut ? 'Épuisé pour aujourd\'hui' : euro(item.price)}</span>
                 </span>
-                <span className="item-add">+</span>
+                {!item.soldOut && <span className="item-add">+</span>}
               </button>
             ))}
           </div>
         </section>
       ))}
+
+      <footer className="c-footer">
+        {brand.name} · Table {table}
+      </footer>
 
       {count > 0 && !showCart && (
         <button className="cart-bar" onClick={() => setShowCart(true)}>
@@ -251,7 +305,10 @@ export default function Customer({ table }) {
               <div key={l.key} className="cart-line">
                 <span className="cart-qty">{l.qty}×</span>
                 <div className="cart-info">
-                  <div className="item-name">{l.item.emoji} {l.item.name}</div>
+                  <div className="item-name">
+                    {l.item.emoji} {l.item.name}
+                    {soldOutIds.has(l.item.id) && <span className="pill pill-annulee tag">Épuisé</span>}
+                  </div>
                   {optionSummary(l.item, l.options) && <div className="muted small">{optionSummary(l.item, l.options)}</div>}
                   {l.note && <div className="muted small">« {l.note} »</div>}
                 </div>
@@ -266,7 +323,7 @@ export default function Customer({ table }) {
               <span>Total</span>
               <strong>{euro(total)}</strong>
             </div>
-            <p className="muted small">Paiement à la table ou au comptoir.</p>
+            <p className="muted small">{brand.paymentNote}</p>
             <button className="btn btn-block" disabled={!cart.length || sending} onClick={submit}>
               {sending ? 'Envoi…' : 'Envoyer la commande'}
             </button>
