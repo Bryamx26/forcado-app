@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, AuthError, euro, STATUS_LABELS } from '../../api.js';
+import { useLiveEvents } from '../../live.js';
 
 const COLUMNS = [
   { status: 'nouvelle', title: 'Nouvelles', next: { status: 'en_cours', label: 'Commencer' } },
@@ -86,9 +87,12 @@ export default function Orders({ onAuthError }) {
     }
   };
 
+  useLiveEvents('/api/events?scope=staff', { orders: refresh });
+
   useEffect(() => {
     refresh();
-    const poll = setInterval(refresh, 3000);
+    // Secours si le flux temps réel est coupé.
+    const poll = setInterval(refresh, 15000);
     const clock = setInterval(() => setNow(Date.now()), 30000);
     return () => {
       clearInterval(poll);

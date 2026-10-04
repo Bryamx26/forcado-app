@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, euro, STATUS_LABELS } from '../api.js';
 import { useBrand } from '../brand.js';
+import { useLiveEvents } from '../live.js';
 
 const storageKey = (table) => `forcado-orders-table-${table}`;
 
@@ -113,8 +114,9 @@ function ItemSheet({ item, onClose, onAdd }) {
   );
 }
 
-function OrderTracker({ table }) {
+function OrderTracker({ table, live }) {
   const [orders, setOrders] = useState([]);
+  const tickRef = useRef(() => {});
 
   useEffect(() => {
     let alive = true;
@@ -126,13 +128,17 @@ function OrderTracker({ table }) {
         if (alive) setOrders(data.filter((o) => o.status !== 'servie' && o.status !== 'annulee').reverse());
       } catch {}
     };
+    tickRef.current = tick;
     tick();
-    const t = setInterval(tick, 4000);
+    // Secours si le flux temps réel est coupé.
+    const t = setInterval(tick, 20000);
     return () => {
       alive = false;
       clearInterval(t);
     };
   }, [table]);
+
+  useEffect(() => live.subscribe(() => tickRef.current()), [live]);
 
   if (!orders.length) return null;
   return (
@@ -152,6 +158,14 @@ export default function Customer({ table }) {
   const brand = useBrand();
   const [menu, setMenu] = useState(null);
   const [activeCat, setActiveCat] = useState(null);
+  const loadMenu = useRef(() => {});
+  const [ordersLive] = useState(() => {
+    const subs = new Set();
+    return {
+      subscribe: (fn) => (subs.add(fn), () => subs.delete(fn)),
+      emit: () => subs.forEach((fn) => fn()),
+    };
+  });
   const [error, setError] = useState('');
   const [open, setOpen] = useState(null);
   const [cart, setCart] = useState([]);
@@ -169,11 +183,17 @@ export default function Customer({ table }) {
           setActiveCat((c) => c || m[0]?.id);
         })
         .catch(() => setError('Impossible de charger la carte.'));
+    loadMenu.current = load;
     load();
-    // Recharge la carte de temps en temps pour afficher les produits épuisés.
-    const t = setInterval(load, 30000);
+    // Secours si le flux temps réel est coupé.
+    const t = setInterval(load, 60000);
     return () => clearInterval(t);
   }, []);
+
+  useLiveEvents('/api/events', {
+    menu: () => loadMenu.current(),
+    orders: () => ordersLive.emit(),
+  });
 
   const soldOutIds = useMemo(
     () => new Set((menu || []).flatMap((c) => c.items.filter((i) => i.soldOut).map((i) => i.id))),
@@ -243,7 +263,7 @@ export default function Customer({ table }) {
         </div>
       )}
 
-      <OrderTracker key={trackerKey} table={table} />
+      <OrderTracker key={trackerKey} table={table} live={ordersLive} />
 
       {error && <div className="error">{error}</div>}
       {!menu && !error && <p className="muted center">Chargement de la carte…</p>}

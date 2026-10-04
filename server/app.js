@@ -3,6 +3,7 @@ import { menu, findItem } from './menu.js';
 import { store } from './store.js';
 import { brand } from './config.js';
 import { mountAuth, requireStaff } from './auth.js';
+import { mountEvents, notify } from './events.js';
 
 const STATUSES = ['nouvelle', 'en_cours', 'prete', 'servie', 'annulee'];
 const round = (n) => Math.round(n * 100) / 100;
@@ -41,6 +42,7 @@ function buildLine(raw) {
 const app = express();
 app.use(express.json());
 mountAuth(app);
+mountEvents(app);
 
 // Les commandes de plus de 36 h restent stockées mais ne sont plus renvoyées au comptoir.
 const RECENT_MS = 36 * 60 * 60 * 1000;
@@ -65,6 +67,7 @@ app.put('/api/menu/:itemId/availability', requireStaff, async (req, res, next) =
   if (!findItem(req.params.itemId)) return res.status(404).json({ error: 'Produit inconnu' });
   try {
     await store.setSoldOut(req.params.itemId, !req.body?.available);
+    await notify('menu');
     res.json({ ok: true });
   } catch (e) {
     next(e);
@@ -121,6 +124,7 @@ app.post('/api/orders', async (req, res, next) => {
       createdAt: now,
       updatedAt: now,
     });
+    await notify('orders');
     res.status(201).json(order);
   } catch (e) {
     next(e);
@@ -135,6 +139,7 @@ app.patch('/api/orders/:id', requireStaff, async (req, res, next) => {
   try {
     const order = await store.update(req.params.id, patch);
     if (!order) return res.status(404).json({ error: 'Commande introuvable' });
+    await notify('orders');
     res.json(order);
   } catch (e) {
     next(e);
