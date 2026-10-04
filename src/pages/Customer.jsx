@@ -29,6 +29,16 @@ function optionSummary(item, selected) {
     .join(', ');
 }
 
+// Photo du produit si public/produits/<id>.jpg existe, sinon l'emoji.
+function ProductVisual({ item, className }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span className={className}>
+      {item.image && !failed ? <img src={item.image} alt="" loading="lazy" onError={() => setFailed(true)} /> : item.emoji}
+    </span>
+  );
+}
+
 function ItemSheet({ item, onClose, onAdd }) {
   const [selected, setSelected] = useState(() => {
     const init = {};
@@ -52,7 +62,7 @@ function ItemSheet({ item, onClose, onAdd }) {
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <button className="sheet-close" onClick={onClose} aria-label="Fermer">×</button>
-        <div className="sheet-emoji">{item.emoji}</div>
+        <ProductVisual item={item} className="sheet-emoji" />
         <h2>{item.name}</h2>
         <p className="muted">{item.description}</p>
 
@@ -249,7 +259,7 @@ export default function Customer({ table }) {
                 disabled={item.soldOut}
                 onClick={() => setOpen(item)}
               >
-                <span className="item-emoji">{item.emoji}</span>
+                <ProductVisual item={item} className="item-emoji" />
                 <span className="item-body">
                   <span className="item-name">{item.name}</span>
                   <span className="item-desc">{item.description}</span>

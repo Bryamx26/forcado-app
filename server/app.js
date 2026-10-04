@@ -51,7 +51,10 @@ app.get('/api/menu', async (_req, res, next) => {
   try {
     const soldOut = new Set(await store.soldOut());
     res.set('Cache-Control', 'no-store').json(
-      menu.map((cat) => ({ ...cat, items: cat.items.map((i) => ({ ...i, soldOut: soldOut.has(i.id) })) })),
+      menu.map((cat) => ({
+        ...cat,
+        items: cat.items.map((i) => ({ ...i, image: i.image ?? `/produits/${i.id}.jpg`, soldOut: soldOut.has(i.id) })),
+      })),
     );
   } catch (e) {
     next(e);
