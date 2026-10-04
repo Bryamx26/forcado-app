@@ -60,6 +60,10 @@ Un nouveau client = une copie du dépôt, un projet Vercel, une base Upstash, se
 
 La carte est dans `server/menu.js` : produits, prix, emoji et options (choix unique ou multiple, avec supplément éventuel). **Les prix actuels sont des exemples**, à remplacer par les vrais. Les prix sont toujours recalculés par le serveur, le client ne peut pas les modifier.
 
+## Temps réel
+
+Les écrans se mettent à jour dès qu'une commande arrive ou change de statut, ou qu'un produit est épuisé (en moins d'une seconde). Le serveur garde une connexion ouverte avec chaque écran (`/api/events`, Server-Sent Events) et la renouvelle toutes les 50 secondes. Sur Vercel, le signal passe par Redis (pub/sub). Une vérification régulière reste active en secours si la connexion se coupe.
+
 ## Stockage
 
 En local, les commandes sont enregistrées dans `data/orders.json` (créé automatiquement). Pour repartir de zéro, supprimez ce fichier et redémarrez le serveur.
