@@ -1,0 +1,27 @@
+{
+  "name": "forcado-app",
+  "version": "1.0.0",
+  "description": "Commande à table par QR code pour Forcado",
+  "scripts": {
+    "dev": "concurrently -n api,web \"node --watch server/index.js\" \"vite\"",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "qr": "node scripts/qr.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@upstash/redis": "^1.39.0",
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "vite": "^8.3.2"
+  },
+  "type": "module"
+}

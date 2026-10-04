@@ -1,0 +1,278 @@
+import { useEffect, useMemo, useState } from 'react';
+import { api, euro, STATUS_LABELS } from '../api.js';
+
+const storageKey = (table) => `forcado-orders-table-${table}`;
+
+function readMyOrders(table) {
+  try {
+    return JSON.parse(localStorage.getItem(storageKey(table))) || [];
+  } catch {
+    return [];
+  }
+}
+
+function unitPrice(item, selected) {
+  let price = item.price;
+  for (const group of item.options) {
+    for (const id of selected[group.id] || []) {
+      price += group.choices.find((c) => c.id === id)?.price || 0;
+    }
+  }
+  return price;
+}
+
+function optionSummary(item, selected) {
+  return item.options
+    .flatMap((g) => (selected[g.id] || []).map((id) => g.choices.find((c) => c.id === id)?.name))
+    .filter(Boolean)
+    .join(', ');
+}
+
+function ItemSheet({ item, onClose, onAdd }) {
+  const [selected, setSelected] = useState(() => {
+    const init = {};
+    for (const g of item.options) init[g.id] = g.required ? [g.choices[0].id] : [];
+    return init;
+  });
+  const [qty, setQty] = useState(1);
+  const [note, setNote] = useState('');
+
+  const toggle = (group, choiceId) => {
+    setSelected((s) => {
+      if (group.type === 'single') return { ...s, [group.id]: [choiceId] };
+      const cur = s[group.id] || [];
+      return { ...s, [group.id]: cur.includes(choiceId) ? cur.filter((x) => x !== choiceId) : [...cur, choiceId] };
+    });
+  };
+
+  const price = unitPrice(item, selected);
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <button className="sheet-close" onClick={onClose} aria-label="Fermer">×</button>
+        <div className="sheet-emoji">{item.emoji}</div>
+        <h2>{item.name}</h2>
+        <p className="muted">{item.description}</p>
+
+        {item.options.map((group) => (
+          <fieldset key={group.id} className="opt-group">
+            <legend>
+              {group.name}
+              <span className="opt-hint">{group.type === 'single' ? 'Un choix' : 'Facultatif'}</span>
+            </legend>
+            {group.choices.map((c) => {
+              const checked = (selected[group.id] || []).includes(c.id);
+              return (
+                <label key={c.id} className={`opt ${checked ? 'opt-on' : ''}`}>
+                  <input
+                    type={group.type === 'single' ? 'radio' : 'checkbox'}
+                    name={group.id}
+                    checked={checked}
+                    onChange={() => toggle(group, c.id)}
+                  />
+                  <span>{c.name}</span>
+                  {c.price !== 0 && <span className="opt-price">{c.price > 0 ? '+' : ''}{euro(c.price)}</span>}
+                </label>
+              );
+            })}
+          </fieldset>
+        ))}
+
+        <label className="note">
+          Remarque (allergie, etc.)
+          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Facultatif" />
+        </label>
+
+        <div className="sheet-footer">
+          <div className="qty">
+            <button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Moins">−</button>
+            <span>{qty}</span>
+            <button onClick={() => setQty((q) => Math.min(20, q + 1))} aria-label="Plus">+</button>
+          </div>
+          <button
+            className="btn btn-grow"
+            onClick={() => onAdd({ key: crypto.randomUUID(), item, options: selected, qty, note, price })}
+          >
+            Ajouter · {euro(price * qty)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OrderTracker({ table }) {
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      const ids = readMyOrders(table);
+      if (!ids.length) return;
+      try {
+        const data = await api.orders(ids);
+        if (alive) setOrders(data.filter((o) => o.status !== 'servie' && o.status !== 'annulee').reverse());
+      } catch {}
+    };
+    tick();
+    const t = setInterval(tick, 4000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [table]);
+
+  if (!orders.length) return null;
+  return (
+    <section className="tracker">
+      <h3>Vos commandes</h3>
+      {orders.map((o) => (
+        <div key={o.id} className="tracker-row">
+          <span>Commande n° {o.number}</span>
+          <span className={`pill pill-${o.status}`}>{STATUS_LABELS[o.status]}</span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+export default function Customer({ table }) {
+  const [menu, setMenu] = useState(null);
+  const [error, setError] = useState('');
+  const [open, setOpen] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [showCart, setShowCart] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [placed, setPlaced] = useState(null);
+  const [trackerKey, setTrackerKey] = useState(0);
+
+  useEffect(() => {
+    api.menu().then(setMenu).catch(() => setError('Impossible de charger la carte.'));
+  }, []);
+
+  const total = useMemo(() => cart.reduce((s, l) => s + l.price * l.qty, 0), [cart]);
+  const count = cart.reduce((s, l) => s + l.qty, 0);
+
+  const submit = async () => {
+    setSending(true);
+    setError('');
+    try {
+      const order = await api.createOrder({
+        table,
+        lines: cart.map((l) => ({ itemId: l.item.id, qty: l.qty, options: l.options, note: l.note })),
+      });
+      localStorage.setItem(storageKey(table), JSON.stringify([...readMyOrders(table), order.id].slice(-20)));
+      setPlaced(order);
+      setCart([]);
+      setShowCart(false);
+      setTrackerKey((k) => k + 1);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="customer">
+      <header className="c-header">
+        <div>
+          <div className="logo">Forcado</div>
+          <div className="tagline">Pastelaria portuguesa</div>
+        </div>
+        <div className="table-badge">
+          <span>Table</span>
+          <strong>{table}</strong>
+        </div>
+      </header>
+
+      {placed && (
+        <div className="confirm">
+          <div className="confirm-check">✓</div>
+          <div>
+            <strong>Commande n° {placed.number} envoyée !</strong>
+            <div>On vous l'apporte à la table {table}. Total : {euro(placed.total)}</div>
+          </div>
+          <button className="link" onClick={() => setPlaced(null)}>OK</button>
+        </div>
+      )}
+
+      <OrderTracker key={trackerKey} table={table} />
+
+      {error && <div className="error">{error}</div>}
+      {!menu && !error && <p className="muted center">Chargement de la carte…</p>}
+
+      {menu?.map((cat) => (
+        <section key={cat.id} className="category">
+          <h2>{cat.name}</h2>
+          <div className="items">
+            {cat.items.map((item) => (
+              <button key={item.id} className="item" onClick={() => setOpen(item)}>
+                <span className="item-emoji">{item.emoji}</span>
+                <span className="item-body">
+                  <span className="item-name">{item.name}</span>
+                  <span className="item-desc">{item.description}</span>
+                  <span className="item-price">{euro(item.price)}</span>
+                </span>
+                <span className="item-add">+</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {count > 0 && !showCart && (
+        <button className="cart-bar" onClick={() => setShowCart(true)}>
+          <span className="cart-count">{count}</span>
+          Voir ma commande
+          <span>{euro(total)}</span>
+        </button>
+      )}
+
+      {open && (
+        <ItemSheet
+          item={open}
+          onClose={() => setOpen(null)}
+          onAdd={(line) => {
+            setCart((c) => [...c, line]);
+            setOpen(null);
+          }}
+        />
+      )}
+
+      {showCart && (
+        <div className="overlay" onClick={() => setShowCart(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <button className="sheet-close" onClick={() => setShowCart(false)} aria-label="Fermer">×</button>
+            <h2>Ma commande · table {table}</h2>
+            {cart.length === 0 && <p className="muted">Votre panier est vide.</p>}
+            {cart.map((l) => (
+              <div key={l.key} className="cart-line">
+                <span className="cart-qty">{l.qty}×</span>
+                <div className="cart-info">
+                  <div className="item-name">{l.item.emoji} {l.item.name}</div>
+                  {optionSummary(l.item, l.options) && <div className="muted small">{optionSummary(l.item, l.options)}</div>}
+                  {l.note && <div className="muted small">« {l.note} »</div>}
+                </div>
+                <div className="cart-right">
+                  <div>{euro(l.price * l.qty)}</div>
+                  <button className="link small" onClick={() => setCart((c) => c.filter((x) => x.key !== l.key))}>Retirer</button>
+                </div>
+              </div>
+            ))}
+            {error && <div className="error">{error}</div>}
+            <div className="cart-total">
+              <span>Total</span>
+              <strong>{euro(total)}</strong>
+            </div>
+            <p className="muted small">Paiement à la table ou au comptoir.</p>
+            <button className="btn btn-block" disabled={!cart.length || sending} onClick={submit}>
+              {sending ? 'Envoi…' : 'Envoyer la commande'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
