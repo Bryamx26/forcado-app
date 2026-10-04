@@ -5,6 +5,14 @@ export default function Home() {
   return (
     <div className="home">
       <div className="home-card">
+        <img
+          className="home-hero"
+          src="/produits/accueil.jpg"
+          alt=""
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
         <div className="logo logo-xl">{brand.name}</div>
         <div className="tagline">{brand.tagline}</div>
         <div className="home-qr" aria-hidden="true">
