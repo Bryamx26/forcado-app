@@ -12,11 +12,25 @@ const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_A
 function redisStore() {
   const redis = new Redis({ url: redisUrl, token: redisToken });
   const KEY = 'forcado:orders';
+  const SOLD_OUT = 'forcado:sold-out';
+  const parse = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
   return {
+    async get(ids) {
+      if (!ids.length) return [];
+      const values = await redis.hmget(KEY, ...ids);
+      return Object.values(values || {}).filter(Boolean).map(parse);
+    },
+    async soldOut() {
+      return (await redis.smembers(SOLD_OUT)) || [];
+    },
+    async setSoldOut(itemId, soldOut) {
+      if (soldOut) await redis.sadd(SOLD_OUT, itemId);
+      else await redis.srem(SOLD_OUT, itemId);
+    },
     async list() {
       const all = (await redis.hgetall(KEY)) || {};
       return Object.values(all)
-        .map((v) => (typeof v === 'string' ? JSON.parse(v) : v))
+        .map(parse)
         .sort((a, b) => a.number - b.number);
     },
     async create(order) {
@@ -27,7 +41,7 @@ function redisStore() {
     async update(id, patch) {
       const raw = await redis.hget(KEY, id);
       if (!raw) return null;
-      const order = { ...(typeof raw === 'string' ? JSON.parse(raw) : raw), ...patch };
+      const order = { ...parse(raw), ...patch };
       await redis.hset(KEY, { [id]: JSON.stringify(order) });
       return order;
     },
@@ -43,6 +57,7 @@ function fileStore() {
   } catch {
     db = { nextNumber: 1, orders: [] };
   }
+  db.soldOut ??= [];
   const save = () => {
     fs.mkdirSync(path.dirname(dataFile), { recursive: true });
     fs.writeFileSync(dataFile, JSON.stringify(db, null, 2));
@@ -50,6 +65,17 @@ function fileStore() {
   return {
     async list() {
       return db.orders;
+    },
+    async get(ids) {
+      return db.orders.filter((o) => ids.includes(o.id));
+    },
+    async soldOut() {
+      return db.soldOut;
+    },
+    async setSoldOut(itemId, soldOut) {
+      db.soldOut = db.soldOut.filter((id) => id !== itemId);
+      if (soldOut) db.soldOut.push(itemId);
+      save();
     },
     async create(order) {
       order.number = db.nextNumber++;
