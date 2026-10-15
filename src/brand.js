@@ -9,6 +9,11 @@ export const defaultBrand = {
   locale: 'fr-BE',
   paymentNote: 'Paiement à la table ou au comptoir.',
   website: '',
+  description: '',
+  city: '',
+  about: '',
+  legal: { company: '', address: '', vat: '', email: '', phone: '' },
+  vendor: { name: 'Commande à table', email: '', phone: '', website: '', price: '', demoUrl: '', showOffer: true },
 };
 
 export const BrandContext = createContext(defaultBrand);

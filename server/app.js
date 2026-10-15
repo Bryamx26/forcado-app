@@ -4,6 +4,7 @@ import { store } from './store.js';
 import { brand } from './config.js';
 import { mountAuth, requireStaff } from './auth.js';
 import { mountEvents, notify } from './events.js';
+import { securityHeaders, rateLimit } from './security.js';
 
 const STATUSES = ['nouvelle', 'en_cours', 'prete', 'servie', 'annulee'];
 const round = (n) => Math.round(n * 100) / 100;
@@ -40,7 +41,9 @@ function buildLine(raw) {
 }
 
 const app = express();
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(securityHeaders);
+app.use(express.json({ limit: '20kb' }));
 mountAuth(app);
 mountEvents(app);
 
@@ -97,7 +100,10 @@ app.get('/api/orders', requireStaff, async (_req, res, next) => {
   }
 });
 
-app.post('/api/orders', async (req, res, next) => {
+// Contre l'envoi massif de fausses commandes. Large, car tous les clients du Wi-Fi de la boutique partagent la même adresse.
+const orderLimit = rateLimit('order', 40, 10 * 60, 'Trop de commandes envoyées. Patientez quelques minutes ou appelez le personnel.');
+
+app.post('/api/orders', orderLimit, async (req, res, next) => {
   const table = parseInt(req.body?.table, 10);
   if (!table || table < 1 || table > 999) return res.status(400).json({ error: 'Numéro de table invalide' });
   const lines = req.body?.lines;

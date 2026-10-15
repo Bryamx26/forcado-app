@@ -1,6 +1,7 @@
 // Connexion des employés : un mot de passe commun (STAFF_PASSWORD) et un cookie de session signé.
 // Rien n'est stocké côté serveur, ce qui fonctionne aussi avec les fonctions Vercel.
 import crypto from 'node:crypto';
+import { clientIp, overLimit, resetLimit } from './security.js';
 
 const COOKIE = 'staff_session';
 const MAX_AGE = 12 * 60 * 60; // 12 h, une journée de service
@@ -9,6 +10,12 @@ const isProd = Boolean(process.env.VERCEL) || process.env.NODE_ENV === 'producti
 const password = process.env.STAFF_PASSWORD || (isProd ? null : 'forcado');
 if (!process.env.STAFF_PASSWORD && !isProd) {
   console.warn('STAFF_PASSWORD non défini : mot de passe de développement « forcado ».');
+}
+if (process.env.STAFF_PASSWORD && process.env.STAFF_PASSWORD.length < 10) {
+  console.warn('STAFF_PASSWORD est court : utilisez au moins 10 caractères.');
+}
+if (isProd && !process.env.SESSION_SECRET) {
+  console.warn('SESSION_SECRET non défini : définissez une valeur aléatoire longue pour signer les sessions.');
 }
 
 // Changer le mot de passe déconnecte toutes les sessions en cours.
@@ -58,20 +65,6 @@ function samePassword(given) {
   return crypto.timingSafeEqual(a, b);
 }
 
-// Limite simple contre les essais en série (par instance).
-const attempts = new Map();
-function tooManyAttempts(ip) {
-  const now = Date.now();
-  const entry = attempts.get(ip) || { count: 0, since: now };
-  if (now - entry.since > 15 * 60 * 1000) Object.assign(entry, { count: 0, since: now });
-  return entry.count >= 10;
-}
-function recordFailure(ip) {
-  const entry = attempts.get(ip) || { count: 0, since: Date.now() };
-  entry.count++;
-  attempts.set(ip, entry);
-}
-
 export function staffFrom(req) {
   return readToken(getCookie(req, COOKIE));
 }
@@ -88,15 +81,15 @@ export function mountAuth(app) {
     if (!password) {
       return res.status(503).json({ error: "Connexion désactivée : la variable STAFF_PASSWORD n'est pas configurée." });
     }
-    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-    if (tooManyAttempts(ip)) return res.status(429).json({ error: 'Trop d\'essais. Réessayez dans quelques minutes.' });
+    // 10 essais par quart d'heure et par adresse, partagés entre instances quand Redis est configuré.
+    const key = `login:${clientIp(req)}`;
+    if (await overLimit(key, 10, 15 * 60)) return res.status(429).json({ error: 'Trop d\'essais. Réessayez dans quelques minutes.' });
     const name = String(req.body?.name || '').trim().slice(0, 30);
     if (!samePassword(req.body?.password || '')) {
-      recordFailure(ip);
       await new Promise((r) => setTimeout(r, 600));
       return res.status(401).json({ error: 'Mot de passe incorrect' });
     }
-    attempts.delete(ip);
+    await resetLimit(key);
     setCookie(req, res, makeToken(name), MAX_AGE);
     res.json({ name });
   });
