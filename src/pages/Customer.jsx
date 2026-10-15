@@ -6,6 +6,16 @@ import { Alert, Logo, Modal, StatusBadge, useToast } from '../components/ui.jsx'
 
 const storageKey = (table) => `forcado-orders-table-${table}`;
 
+// Modifications déjà lues par le client : { idCommande: modifiedAt }.
+const ACK_KEY = 'forcado-modifications-lues';
+function readAcks() {
+  try {
+    return JSON.parse(localStorage.getItem(ACK_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
 function readMyOrders(table) {
   try {
     return JSON.parse(localStorage.getItem(storageKey(table))) || [];
@@ -143,6 +153,16 @@ function OrderTracker({ table, live }) {
   const tickRef = useRef(() => {});
   const seen = useRef({});
 
+  const [ackModified, setAckModified] = useState(readAcks);
+  const ackModification = (o) => {
+    // Seules les 50 dernières sont gardées.
+    const next = Object.fromEntries([...Object.entries(ackModified), [o.id, o.modifiedAt]].slice(-50));
+    setAckModified(next);
+    try {
+      localStorage.setItem(ACK_KEY, JSON.stringify(next));
+    } catch {}
+  };
+
   // Le client a lu l'avis d'annulation : la commande n'est plus suivie sur cet appareil.
   const dismiss = (id) => {
     localStorage.setItem(storageKey(table), JSON.stringify(readMyOrders(table).filter((x) => x !== id)));
@@ -157,11 +177,13 @@ function OrderTracker({ table, live }) {
       try {
         const data = await api.track(ids);
         if (!alive) return;
-        // Annulation vue pendant que la page est ouverte : petite vibration sur les téléphones qui le permettent.
-        if (data.some((o) => o.status === 'annulee' && seen.current[o.id] && seen.current[o.id] !== 'annulee')) {
-          navigator.vibrate?.([200, 100, 200]);
-        }
-        seen.current = Object.fromEntries(data.map((o) => [o.id, o.status]));
+        // Annulation ou modification vue pendant que la page est ouverte : petite vibration sur les téléphones qui le permettent.
+        const changed = (o) => {
+          const before = seen.current[o.id];
+          return before && ((o.status === 'annulee' && before.status !== 'annulee') || o.modifiedAt !== before.modifiedAt);
+        };
+        if (data.some(changed)) navigator.vibrate?.([200, 100, 200]);
+        seen.current = Object.fromEntries(data.map((o) => [o.id, o]));
         // Les commandes annulées restent affichées jusqu'à ce que le client ferme l'avis.
         setOrders(data.filter((o) => o.status !== 'servie').reverse());
       } catch {}
@@ -201,6 +223,25 @@ function OrderTracker({ table, live }) {
             <div className="tracker-head">
               <strong>Commande n° {o.number}</strong>
             </div>
+            {o.modifiedAt && ackModified[o.id] !== o.modifiedAt && (
+              <div className="tracker-modified" role="alert">
+                <strong>Commande modifiée par l'équipe</strong>
+                <ul className="small">
+                  {o.lines.map((l, i) => (
+                    <li key={i}>
+                      {l.qty} × {l.name}
+                      {l.options.length > 0 && <span className="muted"> ({l.options.join(', ')})</span>}
+                    </li>
+                  ))}
+                </ul>
+                <p className="small">
+                  Nouveau total : <strong>{euro(o.total)}</strong>
+                </p>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => ackModification(o)}>
+                  OK
+                </button>
+              </div>
+            )}
             <Progress status={o.status} />
             {o.status === 'prete' && <p className="small tracker-ready">Votre commande arrive à votre table.</p>}
           </div>

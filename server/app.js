@@ -142,7 +142,16 @@ app.get('/api/orders/track', async (req, res, next) => {
   try {
     const orders = await store.get(ids);
     res.set('Cache-Control', 'no-store').json(
-      orders.map(({ id, number, table, status, total }) => ({ id, number, table, status, total })),
+      orders.map(({ id, number, table, status, total, lines, modifiedAt }) => ({
+        id,
+        number,
+        table,
+        status,
+        total,
+        modifiedAt,
+        // Détail renvoyé pour que le client voie ce que l'équipe a changé.
+        lines: lines.map((l) => ({ qty: l.qty, name: l.name, options: l.options.map((o) => o.choice) })),
+      })),
     );
   } catch (e) {
     next(e);
@@ -204,6 +213,50 @@ app.patch('/api/orders/:id', requireStaff, async (req, res, next) => {
     if (!order) return res.status(404).json({ error: 'Commande introuvable' });
     await notify('orders');
     res.json(order);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Modification d'une commande par l'équipe (article épuisé, client qui change d'avis…), tant qu'elle n'est pas servie.
+// Chaque ligne est soit une ligne existante gardée ({ keep: index, qty }), qui conserve son prix d'origine,
+// soit un nouvel article ({ itemId, qty, options, note }), chiffré avec la carte actuelle.
+app.put('/api/orders/:id/lines', requireStaff, async (req, res, next) => {
+  const raw = req.body?.lines;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return res.status(400).json({ error: 'La commande doit garder au moins un article. Sinon, annulez-la.' });
+  }
+  try {
+    const [order] = await store.get([req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Commande introuvable' });
+    if (order.status === 'servie' || order.status === 'annulee') {
+      return res.status(409).json({ error: 'Cette commande est terminée, elle ne peut plus être modifiée.' });
+    }
+    let lines;
+    try {
+      const menu = await getMenu();
+      lines = raw.slice(0, 50).map((l) => {
+        if (l && Number.isInteger(l.keep)) {
+          const old = order.lines[l.keep];
+          if (!old) throw new Error('Ligne inconnue');
+          const qty = Math.max(1, Math.min(20, parseInt(l.qty, 10) || 1));
+          return { ...old, qty, total: round(old.unitPrice * qty) };
+        }
+        return buildLine(l, menu);
+      });
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    const now = new Date().toISOString();
+    const updated = await store.update(order.id, {
+      lines,
+      total: round(lines.reduce((s, l) => s + l.total, 0)),
+      modifiedAt: now,
+      modifiedBy: req.staff.name || undefined,
+      updatedAt: now,
+    });
+    await notify('orders');
+    res.json(updated);
   } catch (e) {
     next(e);
   }

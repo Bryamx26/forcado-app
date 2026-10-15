@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, AuthError, euro } from '../../api.js';
 import { useLiveEvents } from '../../live.js';
 import { Alert, ConfirmDialog, StatusBadge } from '../../components/ui.jsx';
+import OrderEditor from './OrderEditor.jsx';
 
 const COLUMNS = [
   { status: 'nouvelle', title: 'Reçues', next: { status: 'en_cours', label: 'Démarrer' } },
@@ -30,7 +31,7 @@ function beep() {
 }
 
 // Ticket du comptoir (OrderTicket) : le numéro se lit en premier, une seule action principale.
-function OrderCard({ order, column, now, onStatus }) {
+function OrderCard({ order, column, now, onStatus, onEdit }) {
   const mins = minutesSince(order.createdAt, now);
   const late = mins >= 10 && order.status !== 'prete';
   return (
@@ -59,6 +60,12 @@ function OrderCard({ order, column, now, onStatus }) {
         {order.handledBy && order.status !== 'nouvelle' && (
           <div className="ticket-by">Prise en charge par {order.handledBy}</div>
         )}
+        {order.modifiedAt && (
+          <div className="ticket-by">Modifiée{order.modifiedBy ? ` par ${order.modifiedBy}` : ''}</div>
+        )}
+        <button type="button" className="link small ticket-edit" onClick={() => onEdit(order)}>
+          Modifier la commande
+        </button>
         <div className="ticket-total">
           <span className="muted">Total</span>
           <span className="price">{euro(order.total)}</span>
@@ -93,6 +100,7 @@ export default function Orders({ onAuthError }) {
   const [now, setNow] = useState(Date.now());
   const [showHistory, setShowHistory] = useState(false);
   const [cancelling, setCancelling] = useState(null);
+  const [editing, setEditing] = useState(null);
   const known = useRef(null);
 
   const refresh = async () => {
@@ -179,7 +187,7 @@ export default function Orders({ onAuthError }) {
               </h2>
               <ul className="column-list" aria-live="polite">
                 {list.map((o) => (
-                  <OrderCard key={o.id} order={o} column={col} now={now} onStatus={onStatus} />
+                  <OrderCard key={o.id} order={o} column={col} now={now} onStatus={onStatus} onEdit={setEditing} />
                 ))}
               </ul>
               {list.length === 0 && <p className="muted center small empty">Aucune commande</p>}
@@ -205,6 +213,18 @@ export default function Orders({ onAuthError }) {
         </section>
       )}
 
+      {editing && (
+        <OrderEditor
+          order={editing}
+          onAuthError={onAuthError}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            refresh();
+          }}
+        />
+      )}
+
       {cancelling && (
         <ConfirmDialog
           title={`Annuler la commande n° ${cancelling.number} ?`}
@@ -217,7 +237,7 @@ export default function Orders({ onAuthError }) {
             onStatus(order, 'annulee', true);
           }}
         >
-          <p>Table {cancelling.table}. Elle disparaîtra du comptoir et du suivi du client.</p>
+          <p>Table {cancelling.table}. Elle disparaîtra du comptoir et le client sera prévenu sur son téléphone.</p>
         </ConfirmDialog>
       )}
     </>
