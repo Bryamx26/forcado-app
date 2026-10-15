@@ -14,6 +14,7 @@ export const brand = {
   accent: env.BRAND_ACCENT || '#B9722E', // caramel : filets, accents décoratifs
   fontDisplay: env.BRAND_FONT_DISPLAY || '', // ex. "Lora", Georgia, serif (police à ajouter dans src/main.jsx)
   fontSans: env.BRAND_FONT_SANS || '',
+  fontLogo: env.BRAND_FONT_LOGO || '', // police du nom de l'établissement (Playfair Display italique par défaut)
   logo: env.BRAND_LOGO || '', // ex. /produits/logo.svg ; sans logo, le nom s'affiche en Fraunces
   currency: env.BRAND_CURRENCY || 'EUR',
   locale: env.BRAND_LOCALE || 'fr-BE',

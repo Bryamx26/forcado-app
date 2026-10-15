@@ -7,6 +7,7 @@ export const defaultBrand = {
   accent: '#B9722E',
   fontDisplay: '',
   fontSans: '',
+  fontLogo: '',
   logo: '',
   currency: 'EUR',
   locale: 'fr-BE',

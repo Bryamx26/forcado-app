@@ -16,11 +16,13 @@ Système de design de l'application de commande à table de **Forcado**, pâtiss
 
 ## 2. Tokens (variables CSS)
 
-Les valeurs ci-dessous sont celles de [`design/tokens.json`](design/tokens.json). Le thème sombre s'active via `data-theme="dark"` sur `<html>`, ou automatiquement avec `prefers-color-scheme: dark` si aucun thème n'est forcé.
+Les valeurs ci-dessous sont celles de [`design/tokens.json`](design/tokens.json). L'app n'a qu'un thème, clair : pas de mode sombre, même si l'appareil en utilise un.
 
 ```css
 :root {
-  /* — Surfaces (clair) — */
+  color-scheme: light;
+
+  /* — Surfaces — */
   --surface-page: #FBF6EC;
   --surface-raised: #F3EADB;
   --surface-card: #FFFFFF;
@@ -52,6 +54,7 @@ Les valeurs ci-dessous sont celles de [`design/tokens.json`](design/tokens.json)
 
   /* — Typographie — */
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-logo: "Playfair Display", Georgia, serif; /* nom de l'établissement, italique 600 */
   --font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
@@ -91,62 +94,6 @@ Les valeurs ci-dessous sont celles de [`design/tokens.json`](design/tokens.json)
   --touch-comptoir: 48px;
 }
 
-/* Thème sombre : nuit bleue azulejo */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --surface-page: #15202E;
-    --surface-raised: #1E2B3C;
-    --surface-card: #1B2736;
-    --surface-sunken: #0F1826;
-    --border-soft: #2C3B4F;
-    --border-strong: #8C9BAE;
-    --ink: #F5EDE0;
-    --ink-muted: #C9BBA8;
-    --ink-on-brand: #0F1B2B;
-    --brand-blue: #8DB4E8;
-    --brand-blue-strong: #B9D3F2;
-    --brand-blue-tint: #22344B;
-    --accent-caramel: #E0A46A;
-    --accent-caramel-strong: #E0A46A;
-    --accent-caramel-tint: #3A2C1E;
-    --success: #7CC692;
-    --success-tint: #1F3A29;
-    --danger: #F08A7A;
-    --danger-tint: #3F2420;
-    --focus-ring: #F5EDE0;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --surface-page: #15202E;
-  --surface-raised: #1E2B3C;
-  --surface-card: #1B2736;
-  --surface-sunken: #0F1826;
-  --border-soft: #2C3B4F;
-  --border-strong: #8C9BAE;
-  --ink: #F5EDE0;
-  --ink-muted: #C9BBA8;
-  --ink-on-brand: #0F1B2B;
-  --brand-blue: #8DB4E8;
-  --brand-blue-strong: #B9D3F2;
-  --brand-blue-tint: #22344B;
-  --accent-caramel: #E0A46A;
-  --accent-caramel-strong: #E0A46A;
-  --accent-caramel-tint: #3A2C1E;
-  --success: #7CC692;
-  --success-tint: #1F3A29;
-  --danger: #F08A7A;
-  --danger-tint: #3F2420;
-  --focus-ring: #F5EDE0;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
-}
-
 body {
   background: var(--surface-page);
   color: var(--ink);
@@ -166,7 +113,8 @@ Pour un autre commerce, on ne change que le bloc `:root` (couleurs, polices), le
 
 | Rôle | Police | Taille / interligne | Usage |
 |---|---|---|---|
-| Display | Fraunces (600) | 36 / 42 | Titre d'accueil, nom de la boutique |
+| Logo | Playfair Display (600 italique) | 28 / 34, 36 / 42 en accueil | Nom de l'établissement (en-têtes, accueil, connexion, QR codes) |
+| Display | Fraunces (600) | 36 / 42 | Titre d'accueil |
 | H1 | Fraunces (600) | 28 / 34 | Titre d'écran |
 | H2 | Fraunces (600) | 22 / 28 | Nom de catégorie |
 | H3 | Fraunces (600) | 18 / 24 | Titre de carte produit |
@@ -178,7 +126,7 @@ Pour un autre commerce, on ne change que le bloc `:root` (couleurs, polices), le
 | Prix | Figtree (700) | 18 / 24 | Prix affichés, chiffres tabulaires |
 | Numéro de ticket | Figtree (700) | 32 / 36 | Comptoir |
 
-Règles : les chiffres de prix utilisent `font-variant-numeric: tabular-nums`. Pas plus de deux familles par écran. Fraunces n'est jamais utilisé en dessous de 18 px.
+Règles : les chiffres de prix utilisent `font-variant-numeric: tabular-nums`. Pas plus de deux familles par écran, en plus du logo. Fraunces n'est jamais utilisé en dessous de 18 px.
 
 ---
 
@@ -187,7 +135,7 @@ Règles : les chiffres de prix utilisent `font-variant-numeric: tabular-nums`. P
 - **Échelle 4 px** : 4, 8, 12, 16, 20, 24, 32, 40, 48.
 - **Gouttière mobile** : 16 px de chaque côté, jamais de scroll horizontal.
 - **Rayons** : 6 px (champs), 12 px (boutons, badges), 20 px (cartes, modales), pill (onglets, quantités).
-- **Ombres** : `sm` au repos, `md` au survol et pour les toasts, `lg` pour les modales et le panneau de panier. En mode sombre, les ombres deviennent plus opaques et les surfaces se distinguent par la couleur.
+- **Ombres** : `sm` au repos, `md` au survol et pour les toasts, `lg` pour les modales et le panneau de panier.
 
 ---
 
@@ -201,17 +149,16 @@ Le motif est un **filet** de 4 px en bas des en-têtes (alternance `tile-blue-li
 
 ### Contrastes (WCAG 2.2 AA)
 
-| Combinaison | Clair | Sombre | Exigence |
-|---|---|---|---|
-| Texte `ink` sur `surface-page` | ≈ 13:1 | ≈ 14:1 | 4.5:1 |
-| Texte `ink-muted` sur `surface-card` | ≈ 7:1 | ≈ 8:1 | 4.5:1 |
-| Texte blanc sur `brand-blue` (bouton) | ≈ 8:1 | — | 4.5:1 |
-| Texte `ink-on-brand` sur `brand-blue` (sombre) | — | ≈ 7.7:1 | 4.5:1 |
-| Texte `accent-caramel-strong` sur `surface-page` | ≈ 6:1 | — | 4.5:1 |
-| Texte `success` sur `success-tint` | ≈ 5.6:1 | ≈ 6.8:1 | 4.5:1 |
-| Texte `danger` sur `danger-tint` | ≈ 5.4:1 | ≈ 5.8:1 | 4.5:1 |
-| Bordure `border-strong` sur `surface-card` | ≈ 4.6:1 | ≈ 4.8:1 | 3:1 (contrôles) |
-| Anneau de focus sur fond | ≥ 3:1 | ≥ 3:1 | 3:1 |
+| Combinaison | Contraste | Exigence |
+|---|---|---|
+| Texte `ink` sur `surface-page` | ≈ 13:1 | 4.5:1 |
+| Texte `ink-muted` sur `surface-card` | ≈ 7:1 | 4.5:1 |
+| Texte blanc sur `brand-blue` (bouton) | ≈ 8:1 | 4.5:1 |
+| Texte `accent-caramel-strong` sur `surface-page` | ≈ 6:1 | 4.5:1 |
+| Texte `success` sur `success-tint` | ≈ 5.6:1 | 4.5:1 |
+| Texte `danger` sur `danger-tint` | ≈ 5.4:1 | 4.5:1 |
+| Bordure `border-strong` sur `surface-card` | ≈ 4.6:1 | 3:1 (contrôles) |
+| Anneau de focus sur fond | ≥ 3:1 | 3:1 |
 
 Ne jamais utiliser `accent-caramel` (≈ 3.5:1 sur crème) ni `tile-*` pour du texte.
 
@@ -253,7 +200,7 @@ Les maquettes sont schématiques : elles montrent la hiérarchie, pas le pixel.
 ```
 ┌───────────────────────────────┐
 │ ▬▬▬▬▬▬ filet azulejo ▬▬▬▬▬▬▬▬ │
-│  Forcado            Table 7   │  H1 Fraunces · caption table
+│  Forcado            Table 7   │  logo Playfair italique · caption table
 │                               │
 │  Bom dia ! Que vous fait      │  display 28 px
 │  envie aujourd'hui ?          │
@@ -434,12 +381,12 @@ Ce document vient du design system créé avec Claude Design. Voici où chaque p
 
 | Partie | Fichier |
 |---|---|
-| Tokens (clair, sombre, impression) | `src/theme.css`, copie exacte du bloc de la section 2 |
+| Tokens (thème clair unique) | `src/theme.css`, copie exacte du bloc de la section 2 |
 | Styles des écrans | `src/styles.css`, qui n'utilise que les variables |
 | Composants partagés : StatusBadge, Modal, ConfirmDialog, Toast, Logo, Alert | `src/components/ui.jsx` |
 | ProductCard, fiche produit, suivi | `src/pages/Customer.jsx` |
 | OrderTicket et colonnes du comptoir | `src/pages/staff/Orders.jsx` |
-| Polices Fraunces et Figtree, servies par le site | `src/main.jsx` (paquets `@fontsource`) |
+| Polices Fraunces, Figtree et Playfair Display (logo), servies par le site | `src/main.jsx` (paquets `@fontsource`) |
 | Marque d'un autre commerce | `server/config.js` ou variables `BRAND_*` (voir ci-dessous) |
 
 Les classes CSS gardent les noms de l'app (`.btn`, `.ticket`, `.pill`…) ; elles suivent les règles des composants ci-dessus. Correspondance : Button = `.btn` (`.btn-secondary`, `.btn-ghost`, `.btn-danger`, `.btn-lg`, `.btn-comptoir`), ProductCard = `.product`, StatusBadge = `.status`, Field = `.field`, Tabs = `.tabs` / `.tab`, Modal = `.modal`, Toast = `.toast`, OrderTicket = `.ticket`.
@@ -448,9 +395,9 @@ Les classes CSS gardent les noms de l'app (`.btn`, `.ticket`, `.pill`…) ; elle
 
 | Variable | Effet |
 |---|---|
-| `BRAND_PRIMARY` | Remplace `--brand-blue`. Les nuances `-strong`, `-tint` et la version sombre sont calculées. |
+| `BRAND_PRIMARY` | Remplace `--brand-blue`. Les nuances `-strong` et `-tint` sont calculées. |
 | `BRAND_ACCENT` | Remplace `--accent-caramel` et ses nuances. |
-| `BRAND_FONT_DISPLAY`, `BRAND_FONT_SANS` | Remplacent `--font-display` et `--font-sans` (la police doit être ajoutée dans `src/main.jsx`). |
+| `BRAND_FONT_DISPLAY`, `BRAND_FONT_SANS`, `BRAND_FONT_LOGO` | Remplacent `--font-display`, `--font-sans` et `--font-logo` (la police doit être ajoutée dans `src/main.jsx`). |
 | `BRAND_LOGO` | Chemin d'une image (ex. `/produits/logo.svg`) affichée à la place du nom. |
 
 Après un changement de couleur, vérifier les contrastes du tableau de la section 6 : les nuances calculées sont une base, pas une garantie.

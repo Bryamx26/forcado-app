@@ -47,4 +47,4 @@ export function Toast({ tone = "info", message, actionLabel, onAction, onClose }
 
 ## Accessibilité
 
-Le texte garde 4.5:1 sur sa teinte dans les deux thèmes. Un toast ne contient jamais l'unique information critique : une commande refusée reste aussi visible dans la liste. Les toasts n'interceptent pas le focus.
+Le texte garde 4.5:1 sur sa teinte. Un toast ne contient jamais l'unique information critique : une commande refusée reste aussi visible dans la liste. Les toasts n'interceptent pas le focus.

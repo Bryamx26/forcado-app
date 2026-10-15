@@ -8,7 +8,7 @@ Fenêtre modale : fiche produit (sur mobile, en feuille basse) ou confirmation d
 
 ## Règles
 
-- Voile de fond : `rgba(21, 32, 46, 0.6)` en clair, `rgba(0, 0, 0, 0.7)` en sombre.
+- Voile de fond : `rgba(21, 32, 46, 0.6)`.
 - Focus piégé à l'intérieur ; `Échap` ferme ; le focus revient au déclencheur à la fermeture.
 - Un titre en H2 relié par `aria-labelledby`, rôle `dialog` et `aria-modal="true"`.
 - Bouton de fermeture de 44 px, en haut à droite, avec `aria-label="Fermer"`.
