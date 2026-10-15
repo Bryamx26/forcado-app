@@ -1,4 +1,5 @@
 import { useBrand } from '../../brand.js';
+import { Logo } from '../../components/ui.jsx';
 
 // Cadre des pages publiques : en-tête avec le nom de l'établissement, pied de page avec les liens légaux.
 export default function SiteLayout({ children, wide = false }) {
@@ -6,8 +7,8 @@ export default function SiteLayout({ children, wide = false }) {
   return (
     <div className="site">
       <header className="site-header">
-        <a className="logo" href="/">{brand.name}</a>
-        <nav className="site-nav">
+        <Logo as="a" href="/" size="sm" />
+        <nav className="site-nav" aria-label="Pages">
           <a href="/a-propos">À propos</a>
           {brand.vendor?.showOffer && <a href="/commerces">Pour les commerces</a>}
         </nav>

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { api, AuthError, euro } from '../../api.js';
+import { Alert, Modal } from '../../components/ui.jsx';
 
 // Réduit la photo dans le navigateur (800 px max, JPEG) avant l'envoi : rapide et léger pour la base.
 function resizeImage(file, max = 800) {
@@ -90,11 +91,20 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
   };
 
   return (
-    <div className="overlay overlay-center" onClick={onClose}>
-      <form className="sheet editor" onClick={(e) => e.stopPropagation()} onSubmit={save}>
-        <button type="button" className="sheet-close" onClick={onClose} aria-label="Fermer">×</button>
-        <h2>{isNew ? 'Nouvel article' : `Modifier « ${item.name} »`}</h2>
-
+    <Modal
+      as="form"
+      wide
+      title={isNew ? 'Nouvel article' : `Modifier « ${item.name} »`}
+      onClose={onClose}
+      onSubmit={save}
+      footer={
+        <>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Annuler</button>
+          <button className="btn" disabled={busy || uploading} aria-busy={busy || undefined}>{busy ? 'Enregistrement…' : 'Enregistrer'}</button>
+        </>
+      }
+    >
+      <div className="editor">
         <div className="editor-photo">
           <div className="editor-photo-preview">
             {form.image ? <img src={form.image} alt="" /> : <span>{form.emoji}</span>}
@@ -147,15 +157,16 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
                 className="editor-input"
                 value={g.name}
                 onChange={(e) => setGroup(gi, { name: e.target.value })}
+                aria-label="Nom du groupe d'options"
                 placeholder="Nom du groupe (ex. Lait, Taille)"
                 maxLength={40}
                 required
               />
-              <select value={g.type} onChange={(e) => setGroup(gi, { type: e.target.value })}>
+              <select className="editor-input" aria-label="Type de choix" value={g.type} onChange={(e) => setGroup(gi, { type: e.target.value })}>
                 <option value="single">Un seul choix (obligatoire)</option>
                 <option value="multi">Plusieurs choix (facultatif)</option>
               </select>
-              <button type="button" className="link small danger" onClick={() => set({ options: form.options.filter((_, i) => i !== gi) })}>
+              <button type="button" className="btn btn-ghost btn-sm danger" onClick={() => set({ options: form.options.filter((_, i) => i !== gi) })}>
                 Supprimer
               </button>
             </div>
@@ -165,6 +176,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
                   className="editor-input"
                   value={c.name}
                   onChange={(e) => setChoice(gi, ci, { name: e.target.value })}
+                  aria-label="Nom du choix"
                   placeholder="Choix (ex. Avoine)"
                   maxLength={40}
                   required
@@ -200,12 +212,8 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
         )}
         <p className="muted small">Le supplément s'ajoute au prix de base ({euro(0.5)} par exemple). Laissez 0 si le choix est gratuit.</p>
 
-        {error && <div className="error">{error}</div>}
-        <div className="editor-footer">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Annuler</button>
-          <button className="btn" disabled={busy || uploading}>{busy ? 'Enregistrement…' : 'Enregistrer'}</button>
-        </div>
-      </form>
-    </div>
+        {error && <Alert>{error}</Alert>}
+      </div>
+    </Modal>
   );
 }

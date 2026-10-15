@@ -42,12 +42,12 @@ export default function QrCodes() {
           Nombre de tables
           <input type="number" min="1" max="200" value={count} onChange={(e) => setCount(parseInt(e.target.value, 10) || 1)} />
         </label>
-        <button className="btn" onClick={() => window.print()}>Imprimer</button>
+        <button type="button" className="btn btn-secondary" onClick={() => window.print()}>Imprimer les QR des tables</button>
       </div>
       <div className="qr-grid">
         {codes.map((c) => (
           <div key={c.table} className="qr-card">
-            <div className="logo">{brand.name}</div>
+            <div className="qr-brand">{brand.name}</div>
             <img src={c.src} alt={`QR code table ${c.table}`} />
             <div className="qr-table">Table {c.table}</div>
             <div className="small">Scannez pour commander</div>

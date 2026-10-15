@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { api } from '../../api.js';
-import { useBrand } from '../../brand.js';
+import { Alert, Logo } from '../../components/ui.jsx';
 
 export default function Login({ onLogin }) {
-  const brand = useBrand();
   const [name, setName] = useState(() => {
     try {
       return localStorage.getItem('staff-name') || '';
@@ -36,8 +35,8 @@ export default function Login({ onLogin }) {
   return (
     <div className="login">
       <form className="login-card" onSubmit={submit}>
-        <div className="logo logo-xl">{brand.name}</div>
-        <div className="tagline">Espace employés</div>
+        <Logo size="lg" />
+        <h1 className="login-title">Espace employés</h1>
         <label className="field">
           Votre prénom
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={30} autoComplete="username" placeholder="Ex. Ana" />
@@ -53,11 +52,11 @@ export default function Login({ onLogin }) {
             autoFocus
           />
         </label>
-        {error && <div className="error">{error}</div>}
-        <button className="btn btn-block" disabled={busy || !password}>
+        {error && <Alert>{error}</Alert>}
+        <button className="btn btn-lg btn-block" disabled={busy || !password} aria-busy={busy || undefined}>
           {busy ? 'Connexion…' : 'Se connecter'}
         </button>
-        <a className="muted small back-link" href="/">← Retour au site</a>
+        <a className="small back-link" href="/">← Retour au site</a>
       </form>
     </div>
   );

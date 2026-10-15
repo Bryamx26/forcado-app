@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, euro, STATUS_LABELS } from '../api.js';
 import { useBrand } from '../brand.js';
 import { useLiveEvents } from '../live.js';
+import { Alert, Logo, Modal, useToast } from '../components/ui.jsx';
 
 const storageKey = (table) => `forcado-orders-table-${table}`;
 
@@ -60,57 +61,80 @@ function ItemSheet({ item, onClose, onAdd }) {
   const price = unitPrice(item, selected);
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <button className="sheet-close" onClick={onClose} aria-label="Fermer">×</button>
-        <ProductVisual item={item} className="sheet-emoji" />
-        <h2>{item.name}</h2>
-        <p className="muted">{item.description}</p>
-
-        {item.options.map((group) => (
-          <fieldset key={group.id} className="opt-group">
-            <legend>
-              {group.name}
-              <span className="opt-hint">{group.type === 'single' ? 'Un choix' : 'Facultatif'}</span>
-            </legend>
-            {group.choices.map((c) => {
-              const checked = (selected[group.id] || []).includes(c.id);
-              return (
-                <label key={c.id} className={`opt ${checked ? 'opt-on' : ''}`}>
-                  <input
-                    type={group.type === 'single' ? 'radio' : 'checkbox'}
-                    name={group.id}
-                    checked={checked}
-                    onChange={() => toggle(group, c.id)}
-                  />
-                  <span>{c.name}</span>
-                  {c.price !== 0 && <span className="opt-price">{c.price > 0 ? '+' : ''}{euro(c.price)}</span>}
-                </label>
-              );
-            })}
-          </fieldset>
-        ))}
-
-        <label className="note">
-          Remarque (allergie, etc.)
-          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Facultatif" />
-        </label>
-
-        <div className="sheet-footer">
-          <div className="qty">
-            <button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Moins">−</button>
-            <span>{qty}</span>
-            <button onClick={() => setQty((q) => Math.min(20, q + 1))} aria-label="Plus">+</button>
+    <Modal
+      title={item.name}
+      onClose={onClose}
+      media={<ProductVisual item={item} className="sheet-visual" />}
+      footer={
+        <>
+          <div className="qty" role="group" aria-label="Quantité">
+            <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Retirer un">−</button>
+            <span aria-live="polite">{qty}</span>
+            <button type="button" onClick={() => setQty((q) => Math.min(20, q + 1))} aria-label="Ajouter un">+</button>
           </div>
           <button
-            className="btn btn-grow"
+            type="button"
+            className="btn btn-lg btn-grow"
             onClick={() => onAdd({ key: crypto.randomUUID(), item, options: selected, qty, note, price })}
           >
             Ajouter · {euro(price * qty)}
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      {item.description && <p className="muted">{item.description}</p>}
+
+      {item.options.map((group) => (
+        <fieldset key={group.id} className="opt-group">
+          <legend>
+            {group.name}
+            <span className="opt-hint">{group.type === 'single' ? 'Un choix' : 'Facultatif'}</span>
+          </legend>
+          {group.choices.map((c) => {
+            const checked = (selected[group.id] || []).includes(c.id);
+            return (
+              <label key={c.id} className={`opt ${checked ? 'opt-on' : ''}`}>
+                <input
+                  type={group.type === 'single' ? 'radio' : 'checkbox'}
+                  name={group.id}
+                  checked={checked}
+                  onChange={() => toggle(group, c.id)}
+                />
+                <span>{c.name}</span>
+                {c.price !== 0 && <span className="opt-price">{c.price > 0 ? '+' : ''}{euro(c.price)}</span>}
+              </label>
+            );
+          })}
+        </fieldset>
+      ))}
+
+      <label className="field note">
+        Remarque (allergie, etc.)
+        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Facultatif" />
+      </label>
+    </Modal>
+  );
+}
+
+const STEPS = ['nouvelle', 'en_cours', 'prete'];
+const STEP_ICONS = { nouvelle: '●', en_cours: '◐', prete: '✓' };
+
+// Suivi en trois étapes : l'étape courante porte un libellé et une icône, jamais seulement une couleur.
+function Progress({ status }) {
+  const current = STEPS.indexOf(status);
+  return (
+    <ol className="progress">
+      {STEPS.map((step, i) => (
+        <li
+          key={step}
+          className={i < current ? 'done' : i === current ? `current step-${step}` : ''}
+          aria-current={i === current ? 'step' : undefined}
+        >
+          <span className="progress-dot" aria-hidden="true">{i <= current ? STEP_ICONS[step] : ''}</span>
+          <span>{STATUS_LABELS[step]}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -142,20 +166,55 @@ function OrderTracker({ table, live }) {
 
   if (!orders.length) return null;
   return (
-    <section className="tracker">
-      <h3>Vos commandes</h3>
+    <section className="tracker" aria-live="polite">
+      <h2>Suivi de vos commandes</h2>
       {orders.map((o) => (
-        <div key={o.id} className="tracker-row">
-          <span>Commande n° {o.number}</span>
-          <span className={`pill pill-${o.status}`}>{STATUS_LABELS[o.status]}</span>
+        <div key={o.id} className="tracker-order">
+          <div className="tracker-head">
+            <strong>Commande n° {o.number}</strong>
+          </div>
+          <Progress status={o.status} />
+          {o.status === 'prete' && <p className="small tracker-ready">Votre commande arrive à votre table.</p>}
         </div>
       ))}
     </section>
   );
 }
 
+// Carte d'un article : toute la carte ouvre la fiche, le bouton + ajoute directement un article sans options.
+function ProductCard({ item, onOpen, onQuickAdd }) {
+  const out = item.soldOut;
+  return (
+    <article className={`product ${out ? 'product-out' : ''}`}>
+      <ProductVisual item={item} className="product-media" />
+      <div className="product-body">
+        <h3 className="product-name">
+          <button type="button" className="product-open" disabled={out} onClick={() => onOpen(item)}>
+            {item.name}
+          </button>
+        </h3>
+        {item.description && <p className="product-desc">{item.description}</p>}
+      </div>
+      <div className="product-footer">
+        {out ? <span className="product-soldout">Épuisé</span> : <span className="price">{euro(item.price)}</span>}
+        {!out && (
+          <button
+            type="button"
+            className="btn btn-icon"
+            aria-label={`Ajouter ${item.name}`}
+            onClick={() => (item.options.length ? onOpen(item) : onQuickAdd(item))}
+          >
+            +
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
 export default function Customer({ table }) {
   const brand = useBrand();
+  const toast = useToast();
   const [menu, setMenu] = useState(null);
   const [activeCat, setActiveCat] = useState(null);
   const loadMenu = useRef(() => {});
@@ -221,6 +280,7 @@ export default function Customer({ table }) {
       localStorage.setItem(storageKey(table), JSON.stringify([...readMyOrders(table), order.id].slice(-20)));
       setPlaced(order);
       setCart([]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setShowCart(false);
       setTrackerKey((k) => k + 1);
     } catch (e) {
@@ -231,11 +291,17 @@ export default function Customer({ table }) {
     }
   };
 
+  const addLine = (line) => {
+    setCart((c) => [...c, line]);
+    setOpen(null);
+    toast(`${line.qty > 1 ? `${line.qty} × ` : ''}${line.item.name} ajouté au panier`);
+  };
+
   return (
     <div className="customer">
       <header className="c-header">
         <div>
-          <div className="logo">{brand.name}</div>
+          <Logo />
           <div className="tagline">{brand.tagline}</div>
         </div>
         <div className="table-badge">
@@ -245,9 +311,15 @@ export default function Customer({ table }) {
       </header>
 
       {menu && menu.length > 1 && (
-        <nav className="cat-tabs">
+        <nav className="tabs cat-tabs" aria-label="Catégories">
           {menu.map((cat) => (
-            <button key={cat.id} className={activeCat === cat.id ? 'on' : ''} onClick={() => goTo(cat.id)}>
+            <button
+              key={cat.id}
+              type="button"
+              className={`tab ${activeCat === cat.id ? 'on' : ''}`}
+              aria-current={activeCat === cat.id ? 'true' : undefined}
+              onClick={() => goTo(cat.id)}
+            >
               {cat.name}
             </button>
           ))}
@@ -255,40 +327,32 @@ export default function Customer({ table }) {
       )}
 
       {placed && (
-        <div className="confirm">
-          <div className="confirm-check">✓</div>
+        <div className="confirm" role="status">
+          <div className="confirm-check" aria-hidden="true">✓</div>
           <div>
             <strong>Commande n° {placed.number} envoyée !</strong>
             <div>On vous l'apporte à la table {table}. Total : {euro(placed.total)}</div>
           </div>
-          <button className="link" onClick={() => setPlaced(null)}>OK</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPlaced(null)}>OK</button>
         </div>
       )}
 
       <OrderTracker key={trackerKey} table={table} live={ordersLive} />
 
-      {error && <div className="error">{error}</div>}
+      {error && <Alert>{error}</Alert>}
       {!menu && !error && <p className="muted center">Chargement de la carte…</p>}
 
       {menu?.map((cat) => (
         <section key={cat.id} id={`cat-${cat.id}`} className="category">
           <h2>{cat.name}</h2>
-          <div className="items">
+          <div className="products">
             {cat.items.map((item) => (
-              <button
+              <ProductCard
                 key={item.id}
-                className={`item ${item.soldOut ? 'item-out' : ''}`}
-                disabled={item.soldOut}
-                onClick={() => setOpen(item)}
-              >
-                <ProductVisual item={item} className="item-emoji" />
-                <span className="item-body">
-                  <span className="item-name">{item.name}</span>
-                  <span className="item-desc">{item.description}</span>
-                  <span className="item-price">{item.soldOut ? 'Épuisé pour aujourd\'hui' : euro(item.price)}</span>
-                </span>
-                {!item.soldOut && <span className="item-add">+</span>}
-              </button>
+                item={item}
+                onOpen={setOpen}
+                onQuickAdd={(i) => addLine({ key: crypto.randomUUID(), item: i, options: {}, qty: 1, note: '', price: i.price })}
+              />
             ))}
           </div>
         </section>
@@ -299,58 +363,54 @@ export default function Customer({ table }) {
       </footer>
 
       {count > 0 && !showCart && (
-        <button className="cart-bar" onClick={() => setShowCart(true)}>
-          <span className="cart-count">{count}</span>
-          Voir ma commande
-          <span>{euro(total)}</span>
+        <button type="button" className="cart-bar" onClick={() => setShowCart(true)}>
+          <span className="cart-count" aria-label={`${count} article${count > 1 ? 's' : ''}`}>{count}</span>
+          <span className="cart-label">Voir mon panier</span>
+          <span className="price">{euro(total)}</span>
         </button>
       )}
 
-      {open && (
-        <ItemSheet
-          item={open}
-          onClose={() => setOpen(null)}
-          onAdd={(line) => {
-            setCart((c) => [...c, line]);
-            setOpen(null);
-          }}
-        />
-      )}
+      {open && <ItemSheet item={open} onClose={() => setOpen(null)} onAdd={addLine} />}
 
       {showCart && (
-        <div className="overlay" onClick={() => setShowCart(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <button className="sheet-close" onClick={() => setShowCart(false)} aria-label="Fermer">×</button>
-            <h2>Ma commande · table {table}</h2>
-            {cart.length === 0 && <p className="muted">Votre panier est vide.</p>}
+        <Modal
+          title={`Ma commande · table ${table}`}
+          onClose={() => setShowCart(false)}
+          footer={
+            <button type="button" className="btn btn-lg btn-block" disabled={!cart.length || sending} aria-busy={sending || undefined} onClick={submit}>
+              {sending ? 'Envoi…' : `Envoyer la commande · ${euro(total)}`}
+            </button>
+          }
+        >
+          {cart.length === 0 && <p className="muted">Votre panier est vide.</p>}
+          <ul className="cart-lines">
             {cart.map((l) => (
-              <div key={l.key} className="cart-line">
-                <span className="cart-qty">{l.qty}×</span>
+              <li key={l.key} className="cart-line">
+                <span className="cart-qty">{l.qty} ×</span>
                 <div className="cart-info">
-                  <div className="item-name">
-                    {l.item.emoji} {l.item.name}
-                    {soldOutIds.has(l.item.id) && <span className="pill pill-annulee tag">Épuisé</span>}
+                  <div className="cart-name">
+                    {l.item.name}
+                    {soldOutIds.has(l.item.id) && <span className="status status-annulee tag">Épuisé</span>}
                   </div>
                   {optionSummary(l.item, l.options) && <div className="muted small">{optionSummary(l.item, l.options)}</div>}
                   {l.note && <div className="muted small">« {l.note} »</div>}
                 </div>
                 <div className="cart-right">
-                  <div>{euro(l.price * l.qty)}</div>
-                  <button className="link small" onClick={() => setCart((c) => c.filter((x) => x.key !== l.key))}>Retirer</button>
+                  <span className="price">{euro(l.price * l.qty)}</span>
+                  <button type="button" className="link small" onClick={() => setCart((c) => c.filter((x) => x.key !== l.key))}>
+                    Retirer<span className="sr-only"> {l.item.name}</span>
+                  </button>
                 </div>
-              </div>
+              </li>
             ))}
-            {error && <div className="error">{error}</div>}
-            <div className="cart-total">
-              <span>Total</span>
-              <strong>{euro(total)}</strong>
-            </div>
-            <p className="muted small">{brand.paymentNote}</p>
-            <button className="btn btn-block" disabled={!cart.length || sending} onClick={submit}>
-              {sending ? 'Envoi…' : 'Envoyer la commande'}
-            </button>
+          </ul>
+          {error && <Alert>{error}</Alert>}
+          <div className="cart-total">
+            <span>Total</span>
+            <strong className="price">{euro(total)}</strong>
           </div>
-        </div>
+          <p className="muted small">{brand.paymentNote}</p>
+        </Modal>
       )}
     </div>
   );
