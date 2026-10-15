@@ -1,5 +1,5 @@
 // Identité de l'établissement. Pour vendre l'app à un autre commerce, il suffit de changer ces valeurs
-// (ou les variables d'environnement correspondantes sur Vercel), puis la carte dans server/menu.js.
+// (ou les variables d'environnement correspondantes sur Vercel), puis composer la carte depuis l'espace employés (onglet Carte).
 export const brand = {
   name: process.env.BRAND_NAME || 'Forcado',
   tagline: process.env.BRAND_TAGLINE || 'Pastelaria portuguesa',

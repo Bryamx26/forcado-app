@@ -178,7 +178,9 @@ export default function Customer({ table }) {
     const load = () =>
       api
         .menu()
-        .then((m) => {
+        .then((all) => {
+          // Les catégories vides (en préparation côté employés) ne sont pas montrées aux clients.
+          const m = all.filter((c) => c.items.length);
           setMenu(m);
           setActiveCat((c) => c || m[0]?.id);
         })
@@ -223,7 +225,7 @@ export default function Customer({ table }) {
       setTrackerKey((k) => k + 1);
     } catch (e) {
       setError(e.message);
-      api.menu().then(setMenu).catch(() => {});
+      loadMenu.current();
     } finally {
       setSending(false);
     }

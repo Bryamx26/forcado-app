@@ -1,5 +1,5 @@
 import express from 'express';
-import { menu, findItem } from './menu.js';
+import { getMenu, findItem, catalog, saveImage, readImage, CatalogError } from './catalog.js';
 import { store } from './store.js';
 import { brand } from './config.js';
 import { mountAuth, requireStaff } from './auth.js';
@@ -9,8 +9,8 @@ const STATUSES = ['nouvelle', 'en_cours', 'prete', 'servie', 'annulee'];
 const round = (n) => Math.round(n * 100) / 100;
 
 // Recalcule chaque ligne côté serveur à partir de la carte : le client ne fixe jamais les prix.
-function buildLine(raw) {
-  const item = findItem(raw?.itemId);
+function buildLine(raw, menu) {
+  const item = menu.flatMap((c) => c.items).find((i) => i.id === raw?.itemId);
   if (!item) throw new Error('Produit inconnu');
   const qty = Math.max(1, Math.min(20, parseInt(raw.qty, 10) || 1));
   const chosen = raw.options || {};
@@ -40,7 +40,7 @@ function buildLine(raw) {
 }
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 mountAuth(app);
 mountEvents(app);
 
@@ -53,9 +53,9 @@ app.get('/api/menu', async (_req, res, next) => {
   try {
     const soldOut = new Set(await store.soldOut());
     res.set('Cache-Control', 'no-store').json(
-      menu.map((cat) => ({
+      (await getMenu()).map((cat) => ({
         ...cat,
-        items: cat.items.map((i) => ({ ...i, image: i.image ?? `/produits/${i.id}.jpg`, soldOut: soldOut.has(i.id) })),
+        items: cat.items.map((i) => ({ ...i, soldOut: soldOut.has(i.id) })),
       })),
     );
   } catch (e) {
@@ -64,11 +64,61 @@ app.get('/api/menu', async (_req, res, next) => {
 });
 
 app.put('/api/menu/:itemId/availability', requireStaff, async (req, res, next) => {
-  if (!findItem(req.params.itemId)) return res.status(404).json({ error: 'Produit inconnu' });
   try {
+    if (!(await findItem(req.params.itemId))) return res.status(404).json({ error: 'Produit inconnu' });
     await store.setSoldOut(req.params.itemId, !req.body?.available);
     await notify('menu');
     res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Gestion de la carte par les employés : chaque route renvoie l'élément modifié et prévient les écrans.
+const admin = (fn) => async (req, res, next) => {
+  try {
+    const result = await fn(req);
+    await notify('menu');
+    res.json(result);
+  } catch (e) {
+    if (e instanceof CatalogError) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+};
+app.post('/api/admin/categories', requireStaff, admin((req) => catalog.addCategory(req.body)));
+app.patch('/api/admin/categories/:id', requireStaff, admin((req) => catalog.renameCategory(req.params.id, req.body)));
+app.delete('/api/admin/categories/:id', requireStaff, admin((req) => catalog.deleteCategory(req.params.id)));
+app.post('/api/admin/categories/:id/move', requireStaff, admin((req) => catalog.moveCategory(req.params.id, req.body?.dir)));
+app.post('/api/admin/items', requireStaff, admin((req) => catalog.addItem(req.body)));
+app.put('/api/admin/items/:id', requireStaff, admin((req) => catalog.updateItem(req.params.id, req.body)));
+app.delete('/api/admin/items/:id', requireStaff, async (req, res, next) => {
+  try {
+    await catalog.deleteItem(req.params.id);
+    await store.setSoldOut(req.params.id, false);
+    await notify('menu');
+    res.json({ ok: true });
+  } catch (e) {
+    if (e instanceof CatalogError) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+app.post('/api/admin/items/:id/move', requireStaff, admin((req) => catalog.moveItem(req.params.id, req.body?.dir)));
+
+app.post('/api/admin/images', requireStaff, async (req, res, next) => {
+  try {
+    res.json(await saveImage(req.body?.dataUrl));
+  } catch (e) {
+    if (e instanceof CatalogError) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+// Une photo ne change jamais (une nouvelle photo a une nouvelle adresse) : cache long.
+app.get('/api/images/:id', async (req, res, next) => {
+  try {
+    const image = await readImage(req.params.id);
+    if (!image) return res.status(404).end();
+    res.set({ 'Content-Type': image.type, 'Cache-Control': 'public, max-age=31536000, immutable' }).send(image.buffer);
   } catch (e) {
     next(e);
   }
@@ -104,7 +154,8 @@ app.post('/api/orders', async (req, res, next) => {
   if (!Array.isArray(lines) || lines.length === 0) return res.status(400).json({ error: 'Le panier est vide' });
   let built;
   try {
-    built = lines.slice(0, 50).map(buildLine);
+    const menu = await getMenu();
+    built = lines.slice(0, 50).map((l) => buildLine(l, menu));
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
