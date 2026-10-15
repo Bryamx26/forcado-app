@@ -8,8 +8,13 @@ export const brand = {
   description:
     env.BRAND_DESCRIPTION ||
     'Pastelaria portugaise : pastéis de nata, viennoiseries et café. Commandez depuis votre table en scannant le QR code.',
-  primary: env.BRAND_PRIMARY || '#1d3f7a',
-  accent: env.BRAND_ACCENT || '#f2b43c',
+  // Couleurs et polices du design system (DESIGN.md). Les valeurs par défaut sont celles de Forcado ;
+  // les nuances (survol, fonds doux, thème sombre) sont calculées à partir de ces deux couleurs.
+  primary: env.BRAND_PRIMARY || '#1F4E8C', // bleu azulejo : boutons, liens, focus
+  accent: env.BRAND_ACCENT || '#B9722E', // caramel : filets, accents décoratifs
+  fontDisplay: env.BRAND_FONT_DISPLAY || '', // ex. "Lora", Georgia, serif (police à ajouter dans src/main.jsx)
+  fontSans: env.BRAND_FONT_SANS || '',
+  logo: env.BRAND_LOGO || '', // ex. /produits/logo.svg ; sans logo, le nom s'affiche en Fraunces
   currency: env.BRAND_CURRENCY || 'EUR',
   locale: env.BRAND_LOCALE || 'fr-BE',
   paymentNote: env.BRAND_PAYMENT_NOTE || 'Paiement à la table ou au comptoir.',

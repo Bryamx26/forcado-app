@@ -1,5 +1,6 @@
 import { useBrand } from '../brand.js';
 import { SiteFooter } from './site/Layout.jsx';
+import { Logo } from '../components/ui.jsx';
 
 export default function Home() {
   const brand = useBrand();
@@ -14,7 +15,7 @@ export default function Home() {
             e.currentTarget.style.display = 'none';
           }}
         />
-        <div className="logo logo-xl">{brand.name}</div>
+        <Logo size="lg" as="h1" />
         <div className="tagline">{brand.tagline}</div>
         <div className="home-qr" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -24,7 +25,7 @@ export default function Home() {
             <path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" />
           </svg>
         </div>
-        <h1>Commandez depuis votre table</h1>
+        <h2 className="home-title">Commandez depuis votre table</h2>
         <ol className="steps">
           <li><span>1</span>Scannez le QR code posé sur votre table.</li>
           <li><span>2</span>Choisissez vos pâtisseries et boissons.</li>

@@ -3,8 +3,11 @@ import { createContext, useContext } from 'react';
 export const defaultBrand = {
   name: 'Forcado',
   tagline: 'Pastelaria portuguesa',
-  primary: '#1d3f7a',
-  accent: '#f2b43c',
+  primary: '#1F4E8C',
+  accent: '#B9722E',
+  fontDisplay: '',
+  fontSans: '',
+  logo: '',
   currency: 'EUR',
   locale: 'fr-BE',
   paymentNote: 'Paiement à la table ou au comptoir.',

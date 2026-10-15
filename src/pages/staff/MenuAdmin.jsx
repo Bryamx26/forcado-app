@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react';
 import { api, AuthError, euro } from '../../api.js';
 import { useLiveEvents } from '../../live.js';
 import ItemEditor from './ItemEditor.jsx';
+import { Alert, ConfirmDialog, Modal, useToast } from '../../components/ui.jsx';
 
 export default function MenuAdmin({ onAuthError }) {
   const [menu, setMenu] = useState(null);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null); // { item?, categoryId? }
   const [newCategory, setNewCategory] = useState('');
+  const [confirming, setConfirming] = useState(null); // { title, text, label, action }
+  const [renaming, setRenaming] = useState(null); // { cat, name }
+  const toast = useToast();
 
   const load = () => api.menu().then(setMenu).catch(() => setError('Impossible de charger la carte.'));
   useEffect(() => {
@@ -16,10 +20,11 @@ export default function MenuAdmin({ onAuthError }) {
   useLiveEvents('/api/events?scope=staff', { menu: load });
 
   // Lance une action, affiche l'erreur éventuelle, puis recharge la carte.
-  const run = async (fn) => {
+  const run = async (fn, done) => {
     setError('');
     try {
       await fn();
+      if (done) toast(done);
     } catch (e) {
       if (e instanceof AuthError) return onAuthError();
       setError(e.message);
@@ -33,19 +38,29 @@ export default function MenuAdmin({ onAuthError }) {
     run(() => api.setAvailable(item.id, available));
   };
 
-  const removeItem = (item) => {
-    if (!confirm(`Supprimer « ${item.name} » de la carte ? Les commandes déjà passées ne changent pas.`)) return;
-    run(() => api.deleteItem(item.id));
-  };
+  const removeItem = (item) =>
+    setConfirming({
+      title: `Supprimer « ${item.name} » ?`,
+      text: "L'article disparaît de la carte. Les commandes déjà passées ne changent pas.",
+      label: "Supprimer l'article",
+      action: () => run(() => api.deleteItem(item.id), `« ${item.name} » supprimé`),
+    });
 
-  const renameCategory = (cat) => {
-    const name = prompt('Nouveau nom de la catégorie', cat.name);
-    if (name && name.trim() !== cat.name) run(() => api.renameCategory(cat.id, name));
+  const renameCategory = (e) => {
+    e.preventDefault();
+    const { cat, name } = renaming;
+    setRenaming(null);
+    if (name.trim() && name.trim() !== cat.name) run(() => api.renameCategory(cat.id, name), 'Catégorie renommée');
   };
 
   const removeCategory = (cat) => {
     if (cat.items.length) return setError(`Videz « ${cat.name} » (déplacez ou supprimez ses articles) avant de la supprimer.`);
-    if (confirm(`Supprimer la catégorie « ${cat.name} » ?`)) run(() => api.deleteCategory(cat.id));
+    setConfirming({
+      title: `Supprimer la catégorie « ${cat.name} » ?`,
+      text: 'Elle est vide : aucun article ne sera perdu.',
+      label: 'Supprimer la catégorie',
+      action: () => run(() => api.deleteCategory(cat.id), 'Catégorie supprimée'),
+    });
   };
 
   const addCategory = (e) => {
@@ -54,7 +69,7 @@ export default function MenuAdmin({ onAuthError }) {
     run(async () => {
       await api.addCategory(newCategory);
       setNewCategory('');
-    });
+    }, 'Catégorie créée');
   };
 
   return (
@@ -68,7 +83,7 @@ export default function MenuAdmin({ onAuthError }) {
           </p>
         </div>
       </div>
-      {error && <div className="error">{error}</div>}
+      {error && <Alert>{error}</Alert>}
       {!menu && !error && <p className="muted">Chargement…</p>}
 
       {menu?.map((cat, ci) => (
@@ -76,10 +91,10 @@ export default function MenuAdmin({ onAuthError }) {
           <div className="admin-cat-head">
             <h3>{cat.name}</h3>
             <div className="admin-tools">
-              <button className="icon-btn" title="Monter" disabled={ci === 0} onClick={() => run(() => api.moveCategory(cat.id, 'up'))}>↑</button>
-              <button className="icon-btn" title="Descendre" disabled={ci === menu.length - 1} onClick={() => run(() => api.moveCategory(cat.id, 'down'))}>↓</button>
-              <button className="link small" onClick={() => renameCategory(cat)}>Renommer</button>
-              <button className="link small danger" onClick={() => removeCategory(cat)}>Supprimer</button>
+              <button type="button" className="icon-btn" aria-label={`Monter ${cat.name}`} title="Monter" disabled={ci === 0} onClick={() => run(() => api.moveCategory(cat.id, 'up'))}>↑</button>
+              <button type="button" className="icon-btn" aria-label={`Descendre ${cat.name}`} title="Descendre" disabled={ci === menu.length - 1} onClick={() => run(() => api.moveCategory(cat.id, 'down'))}>↓</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRenaming({ cat, name: cat.name })}>Renommer</button>
+              <button type="button" className="btn btn-ghost btn-sm danger" onClick={() => removeCategory(cat)}>Supprimer</button>
             </div>
           </div>
           {cat.items.length === 0 && <p className="muted small">Aucun article dans cette catégorie.</p>}
@@ -99,14 +114,14 @@ export default function MenuAdmin({ onAuthError }) {
                 <span className="switch-label">{item.soldOut ? 'Épuisé' : 'Disponible'}</span>
               </label>
               <div className="admin-tools">
-                <button className="icon-btn" title="Monter" disabled={ii === 0} onClick={() => run(() => api.moveItem(item.id, 'up'))}>↑</button>
-                <button className="icon-btn" title="Descendre" disabled={ii === cat.items.length - 1} onClick={() => run(() => api.moveItem(item.id, 'down'))}>↓</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setEditing({ item, categoryId: cat.id })}>Modifier</button>
-                <button className="icon-btn danger" title="Supprimer" aria-label={`Supprimer ${item.name}`} onClick={() => removeItem(item)}>🗑</button>
+                <button type="button" className="icon-btn" aria-label={`Monter ${item.name}`} title="Monter" disabled={ii === 0} onClick={() => run(() => api.moveItem(item.id, 'up'))}>↑</button>
+                <button type="button" className="icon-btn" aria-label={`Descendre ${item.name}`} title="Descendre" disabled={ii === cat.items.length - 1} onClick={() => run(() => api.moveItem(item.id, 'down'))}>↓</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditing({ item, categoryId: cat.id })}>Modifier</button>
+                <button type="button" className="icon-btn danger" title="Supprimer" aria-label={`Supprimer ${item.name}`} onClick={() => removeItem(item)}>🗑</button>
               </div>
             </div>
           ))}
-          <button className="btn btn-ghost btn-sm admin-add" onClick={() => setEditing({ categoryId: cat.id })}>
+          <button type="button" className="btn btn-ghost btn-sm admin-add" onClick={() => setEditing({ categoryId: cat.id })}>
             + Ajouter un article
           </button>
         </div>
@@ -116,6 +131,7 @@ export default function MenuAdmin({ onAuthError }) {
         <form className="admin-new-cat" onSubmit={addCategory}>
           <input
             className="editor-input"
+            aria-label="Nom de la nouvelle catégorie"
             value={newCategory}
             onChange={(e) => setNewCategory(e.target.value)}
             placeholder="Nouvelle catégorie (ex. Salgados)"
@@ -132,11 +148,46 @@ export default function MenuAdmin({ onAuthError }) {
           categories={menu}
           onAuthError={onAuthError}
           onClose={() => setEditing(null)}
-          onSaved={() => {
+          onSaved={(saved) => {
             setEditing(null);
+            toast(`« ${saved?.name || 'Article'} » enregistré`);
             load();
           }}
         />
+      )}
+
+      {confirming && (
+        <ConfirmDialog
+          title={confirming.title}
+          confirmLabel={confirming.label}
+          onCancel={() => setConfirming(null)}
+          onConfirm={() => {
+            setConfirming(null);
+            confirming.action();
+          }}
+        >
+          <p>{confirming.text}</p>
+        </ConfirmDialog>
+      )}
+
+      {renaming && (
+        <Modal
+          as="form"
+          title="Renommer la catégorie"
+          onClose={() => setRenaming(null)}
+          onSubmit={renameCategory}
+          footer={
+            <>
+              <button type="button" className="btn btn-ghost" onClick={() => setRenaming(null)}>Annuler</button>
+              <button className="btn" disabled={!renaming.name.trim()}>Renommer</button>
+            </>
+          }
+        >
+          <label className="field">
+            Nom de la catégorie
+            <input value={renaming.name} onChange={(e) => setRenaming({ ...renaming, name: e.target.value })} maxLength={40} data-autofocus />
+          </label>
+        </Modal>
       )}
     </section>
   );

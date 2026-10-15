@@ -109,7 +109,7 @@ if (siteUrl) {
 const initial = esc(brand.name.trim().charAt(0).toUpperCase() || '•');
 fs.writeFileSync(
   path.join(dist, 'favicon.svg'),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${esc(brand.primary)}"/><text x="32" y="45" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="38" fill="${esc(brand.accent)}">${initial}</text></svg>\n`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${esc(brand.primary)}"/><text x="32" y="45" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="38" fill="#FFFFFF">${initial}</text></svg>\n`,
 );
 
 fs.writeFileSync(

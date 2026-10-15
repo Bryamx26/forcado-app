@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, AuthError, euro, STATUS_LABELS } from '../../api.js';
+import { api, AuthError, euro } from '../../api.js';
 import { useLiveEvents } from '../../live.js';
+import { Alert, ConfirmDialog, StatusBadge } from '../../components/ui.jsx';
 
 const COLUMNS = [
-  { status: 'nouvelle', title: 'Nouvelles', next: { status: 'en_cours', label: 'Commencer' } },
-  { status: 'en_cours', title: 'En préparation', next: { status: 'prete', label: 'Marquer prête' } },
-  { status: 'prete', title: 'Prêtes à servir', next: { status: 'servie', label: 'Servie' } },
+  { status: 'nouvelle', title: 'Reçues', next: { status: 'en_cours', label: 'Démarrer' } },
+  { status: 'en_cours', title: 'En préparation', next: { status: 'prete', label: 'Prête ✓' } },
+  { status: 'prete', title: 'Prêtes', next: { status: 'servie', label: 'Servie' } },
 ];
 
 function minutesSince(iso, now) {
@@ -28,41 +29,61 @@ function beep() {
   } catch {}
 }
 
+// Ticket du comptoir (OrderTicket) : le numéro se lit en premier, une seule action principale.
 function OrderCard({ order, column, now, onStatus }) {
   const mins = minutesSince(order.createdAt, now);
+  const late = mins >= 10 && order.status !== 'prete';
   return (
-    <article className={`ticket ticket-${order.status} ${mins >= 10 && order.status !== 'prete' ? 'ticket-late' : ''}`}>
-      <header className="ticket-head">
-        <span className="ticket-table">Table {order.table}</span>
-        <span className="ticket-meta">
-          n° {order.number} · {mins === 0 ? "à l'instant" : `il y a ${mins} min`}
-        </span>
-      </header>
-      <ul className="ticket-lines">
-        {order.lines.map((l, i) => (
-          <li key={i}>
-            <strong>{l.qty}×</strong> {l.name}
-            {l.options.length > 0 && <div className="ticket-opts">{l.options.map((o) => o.choice).join(' · ')}</div>}
-            {l.note && <div className="ticket-note">⚠ {l.note}</div>}
-          </li>
-        ))}
-      </ul>
-      {order.handledBy && order.status !== 'nouvelle' && (
-        <div className="ticket-by">Prise en charge par {order.handledBy}</div>
-      )}
-      <footer className="ticket-foot">
-        <span className="muted">{euro(order.total)}</span>
-        <div className="ticket-actions">
+    <li>
+      <article className={`ticket ${late ? 'ticket-late' : ''}`} aria-label={`Commande ${order.number}, table ${order.table}`}>
+        <header className="ticket-head">
+          <span className="ticket-number">#{order.number}</span>
+          <span className="ticket-meta">
+            Table {order.table} · {late ? `Depuis ${mins} min` : mins === 0 ? "à l'instant" : `${mins} min`}
+          </span>
+        </header>
+        <StatusBadge status={order.status} comptoir />
+        <ul className="ticket-lines">
+          {order.lines.map((l, i) => (
+            <li key={i}>
+              <strong>{l.qty} ×</strong> {l.name}
+              {l.options.length > 0 && <div className="ticket-opts">{l.options.map((o) => o.choice).join(' · ')}</div>}
+              {l.note && (
+                <div className="ticket-note">
+                  <span aria-hidden="true">⚑</span> {l.note}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+        {order.handledBy && order.status !== 'nouvelle' && (
+          <div className="ticket-by">Prise en charge par {order.handledBy}</div>
+        )}
+        <div className="ticket-total">
+          <span className="muted">Total</span>
+          <span className="price">{euro(order.total)}</span>
+        </div>
+        <footer className="ticket-actions">
           {order.status === 'nouvelle' && (
-            <button className="btn btn-ghost btn-sm" onClick={() => onStatus(order, 'annulee')}>Annuler</button>
+            <button type="button" className="btn btn-ghost" onClick={() => onStatus(order, 'annulee')}>Annuler</button>
           )}
           {order.status === 'en_cours' && (
-            <button className="btn btn-ghost btn-sm" title="Remettre en attente" onClick={() => onStatus(order, 'nouvelle')}>↩</button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              aria-label="Remettre en attente"
+              title="Remettre en attente"
+              onClick={() => onStatus(order, 'nouvelle')}
+            >
+              ↩
+            </button>
           )}
-          <button className="btn btn-sm" onClick={() => onStatus(order, column.next.status)}>{column.next.label}</button>
-        </div>
-      </footer>
-    </article>
+          <button type="button" className="btn btn-comptoir btn-grow" onClick={() => onStatus(order, column.next.status)}>
+            {column.next.label}
+          </button>
+        </footer>
+      </article>
+    </li>
   );
 }
 
@@ -71,6 +92,7 @@ export default function Orders({ onAuthError }) {
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
   const [showHistory, setShowHistory] = useState(false);
+  const [cancelling, setCancelling] = useState(null);
   const known = useRef(null);
 
   const refresh = async () => {
@@ -100,8 +122,8 @@ export default function Orders({ onAuthError }) {
     };
   }, []);
 
-  const onStatus = async (order, status) => {
-    if (status === 'annulee' && !confirm(`Annuler la commande n° ${order.number} (table ${order.table}) ?`)) return;
+  const onStatus = async (order, status, confirmed = false) => {
+    if (status === 'annulee' && !confirmed) return setCancelling(order);
     setOrders((os) => os.map((o) => (o.id === order.id ? { ...o, status } : o)));
     try {
       await api.setStatus(order.id, status);
@@ -144,26 +166,29 @@ export default function Orders({ onAuthError }) {
         </div>
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {error && <Alert>{error}</Alert>}
 
       <div className="board">
         {COLUMNS.map((col) => {
           const list = orders.filter((o) => o.status === col.status);
+          const titleId = `col-${col.status}`;
           return (
-            <section key={col.status} className={`column column-${col.status}`}>
-              <h2>
-                {col.title} <span className="column-count">{list.length}</span>
+            <section key={col.status} className={`column column-${col.status}`} aria-labelledby={titleId}>
+              <h2 id={titleId}>
+                {col.title} <span className="column-count">({list.length})</span>
               </h2>
+              <ul className="column-list" aria-live="polite">
+                {list.map((o) => (
+                  <OrderCard key={o.id} order={o} column={col} now={now} onStatus={onStatus} />
+                ))}
+              </ul>
               {list.length === 0 && <p className="muted center small empty">Aucune commande</p>}
-              {list.map((o) => (
-                <OrderCard key={o.id} order={o} column={col} now={now} onStatus={onStatus} />
-              ))}
             </section>
           );
         })}
       </div>
 
-      <button className="btn btn-ghost btn-sm history-toggle" onClick={() => setShowHistory((s) => !s)}>
+      <button type="button" className="btn btn-ghost btn-sm history-toggle" aria-expanded={showHistory} onClick={() => setShowHistory((s) => !s)}>
         {showHistory ? "Masquer l'historique" : "Voir l'historique"}
       </button>
       {showHistory && (
@@ -173,11 +198,27 @@ export default function Orders({ onAuthError }) {
           {history.map((o) => (
             <div key={o.id} className="history-row">
               <span>n° {o.number} · Table {o.table}</span>
-              <span className="muted small">{o.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')}</span>
-              <span className={`pill pill-${o.status}`}>{STATUS_LABELS[o.status]}</span>
+              <span className="muted small">{o.lines.map((l) => `${l.qty} × ${l.name}`).join(', ')}</span>
+              <StatusBadge status={o.status} />
             </div>
           ))}
         </section>
+      )}
+
+      {cancelling && (
+        <ConfirmDialog
+          title={`Annuler la commande n° ${cancelling.number} ?`}
+          confirmLabel="Annuler la commande"
+          cancelLabel="Garder"
+          onCancel={() => setCancelling(null)}
+          onConfirm={() => {
+            const order = cancelling;
+            setCancelling(null);
+            onStatus(order, 'annulee', true);
+          }}
+        >
+          <p>Table {cancelling.table}. Elle disparaîtra du comptoir et du suivi du client.</p>
+        </ConfirmDialog>
       )}
     </>
   );

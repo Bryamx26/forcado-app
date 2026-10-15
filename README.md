@@ -64,7 +64,7 @@ Remplacez l'adresse par celle du serveur (l'IP de l'ordinateur sur le Wi-Fi de l
 
 Tout ce qui est propre à Forcado est réglable sans toucher au code de l'interface :
 
-- **Identité** dans `server/config.js` ou par variables d'environnement : `BRAND_NAME`, `BRAND_TAGLINE`, `BRAND_PRIMARY` (couleur principale), `BRAND_ACCENT`, `BRAND_CURRENCY`, `BRAND_LOCALE`, `BRAND_PAYMENT_NOTE`, `BRAND_WEBSITE`.
+- **Identité** dans `server/config.js` ou par variables d'environnement : `BRAND_NAME`, `BRAND_TAGLINE`, `BRAND_PRIMARY` (couleur principale), `BRAND_ACCENT`, `BRAND_FONT_DISPLAY`, `BRAND_FONT_SANS`, `BRAND_LOGO`, `BRAND_CURRENCY`, `BRAND_LOCALE`, `BRAND_PAYMENT_NOTE`, `BRAND_WEBSITE`.
 - **Carte** depuis l'espace employés, onglet **Carte** (la carte de départ de `server/menu.js` n'est chargée qu'une fois, dans une base vide).
 
 - **Pages légales** : `LEGAL_COMPANY`, `LEGAL_ADDRESS`, `LEGAL_VAT` (numéro BCE), `LEGAL_EMAIL`, `LEGAL_PHONE`. Tant qu'elles manquent, les pages affichent « à compléter ».
@@ -113,3 +113,7 @@ Si les variables `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` (ou `KV_
 ## Carte du code
 
 Voir [docs/CARTE-DU-CODE.md](docs/CARTE-DU-CODE.md).
+
+## Design system
+
+Couleurs, polices, composants et règles d'accessibilité sont décrits dans [DESIGN.md](DESIGN.md) (guides détaillés dans [`design/`](design/)). Les tokens vivent dans `src/theme.css` ; l'app passe automatiquement en thème sombre si le téléphone ou la tablette l'est.

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { useBrand } from '../brand.js';
 import Login from './staff/Login.jsx';
 import Orders from './staff/Orders.jsx';
 import MenuAdmin from './staff/MenuAdmin.jsx';
 import QrCodes from './staff/QrCodes.jsx';
+import { Logo } from '../components/ui.jsx';
 
 const TABS = [
   { path: '/comptoir', label: 'Commandes' },
@@ -13,7 +13,6 @@ const TABS = [
 ];
 
 export default function Staff() {
-  const brand = useBrand();
   const [me, setMe] = useState(undefined);
   const [path, setPath] = useState(window.location.pathname.replace(/\/$/, '') || '/comptoir');
 
@@ -40,19 +39,26 @@ export default function Staff() {
   return (
     <div className="staff">
       <header className="s-header no-print">
-        <div className="logo">
-          {brand.name} <span className="s-sub">· Espace employés</span>
+        <div className="s-brand">
+          <Logo size="sm" />
+          <span className="s-sub">Espace employés</span>
         </div>
-        <nav className="s-tabs">
+        <nav className="tabs s-tabs" aria-label="Espace employés">
           {TABS.map((t) => (
-            <button key={t.path} className={path === t.path ? 'on' : ''} onClick={() => go(t.path)}>
+            <button
+              key={t.path}
+              type="button"
+              className={`tab ${path === t.path ? 'on' : ''}`}
+              aria-current={path === t.path ? 'page' : undefined}
+              onClick={() => go(t.path)}
+            >
               {t.label}
             </button>
           ))}
         </nav>
         <div className="s-user">
           {me.name && <span className="muted small">{me.name}</span>}
-          <button className="btn btn-ghost btn-sm" onClick={logout}>Déconnexion</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Déconnexion</button>
         </div>
       </header>
       {path === '/comptoir/carte' ? (
