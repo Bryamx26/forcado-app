@@ -1,4 +1,5 @@
 import { useBrand } from '../brand.js';
+import { SiteFooter } from './site/Layout.jsx';
 
 export default function Home() {
   const brand = useBrand();
@@ -35,6 +36,7 @@ export default function Home() {
           </a>
         )}
       </div>
+      <SiteFooter />
       <a className="staff-link" href="/comptoir">Espace employés</a>
     </div>
   );

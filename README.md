@@ -7,6 +7,9 @@ Le client scanne le QR code de sa table, choisit ses pâtisseries et boissons (a
 | Adresse | Pour qui | Contenu |
 | --- | --- | --- |
 | `/` | Public | Page d'accueil |
+| `/a-propos` | Public | Présentation de l'établissement et de la commande à table |
+| `/commerces` | Commerçants (prospects) | Présentation de l'app, tarif, FAQ, contact |
+| `/mentions-legales`, `/confidentialite` | Public | Pages légales (Belgique, RGPD) |
 | `/table/5` | Clients (QR code de la table 5) | Carte, panier, suivi de la commande |
 | `/comptoir` | Employés (connexion) | Commandes en direct, stats du jour |
 | `/comptoir/carte` | Employés | Marquer un produit épuisé ou disponible |
@@ -26,6 +29,7 @@ Le mot de passe commun se règle avec la variable d'environnement `STAFF_PASSWOR
 - Prix toujours recalculés par le serveur à partir de la carte.
 - Connexion limitée à 10 essais par adresse IP toutes les 15 minutes ; commandes limitées à 20 par adresse IP toutes les 10 minutes. Avec Redis, ces limites valent pour tout le site.
 - `MAX_TABLES` (facultatif) : nombre de tables de l'établissement ; une commande pour une table au-delà est refusée.
+- Polices servies par le site lui-même : aucun appel à Google, donc aucune adresse IP de visiteur transmise.
 - En-têtes de sécurité (CSP, anti-iframe, HSTS) dans `vercel.json` et `server/security.js`. Si vous ajoutez un service externe (paiement, statistiques), autorisez son domaine dans la CSP des deux fichiers.
 
 ## Lancer
@@ -63,6 +67,10 @@ Tout ce qui est propre à Forcado est réglable sans toucher au code de l'interf
 - **Identité** dans `server/config.js` ou par variables d'environnement : `BRAND_NAME`, `BRAND_TAGLINE`, `BRAND_PRIMARY` (couleur principale), `BRAND_ACCENT`, `BRAND_CURRENCY`, `BRAND_LOCALE`, `BRAND_PAYMENT_NOTE`, `BRAND_WEBSITE`.
 - **Carte** depuis l'espace employés, onglet **Carte** (la carte de départ de `server/menu.js` n'est chargée qu'une fois, dans une base vide).
 
+- **Pages légales** : `LEGAL_COMPANY`, `LEGAL_ADDRESS`, `LEGAL_VAT` (numéro BCE), `LEGAL_EMAIL`, `LEGAL_PHONE`. Tant qu'elles manquent, les pages affichent « à compléter ».
+- **Page Pour les commerces** : `VENDOR_NAME`, `VENDOR_EMAIL` (le formulaire de contact n'apparaît qu'avec lui), `VENDOR_PHONE`, `VENDOR_PRICE` (sinon « Sur devis »), `VENDOR_DEMO_URL` (une installation de démo, pour que les essais ne tombent pas dans les commandes d'un vrai commerce). `VENDOR_SHOW_OFFER=false` masque la page et ses liens.
+- **Référencement** : `SITE_URL` (ex. `https://commande.forcado.be`), `BRAND_DESCRIPTION`, `BRAND_CITY`, `BRAND_TYPE` (Bakery, CafeOrCoffeeShop, Restaurant…), `BRAND_ABOUT` (texte de la page À propos, un paragraphe par ligne).
+
 Un nouveau client = une copie du dépôt, un projet Vercel, une base Upstash, ses variables `BRAND_*` et son `STAFF_PASSWORD`.
 
 ## La carte
@@ -76,6 +84,12 @@ La carte se gère dans **Espace employés → Carte** :
 Les changements apparaissent immédiatement chez les clients. Les photos sont réduites par le navigateur (800 px) puis stockées dans Redis (`data/images/` en local). Supprimer un article ne change pas les commandes déjà passées.
 
 Au premier démarrage sur une base vide, la carte d'exemple de `server/menu.js` est chargée. **Ses prix sont des exemples**, à remplacer. Les prix sont toujours recalculés par le serveur, le client ne peut pas les modifier.
+
+## Référencement (SEO)
+
+`npm run build` lance `scripts/seo.js` après Vite : chaque page publique reçoit son propre HTML avec titre, description, balises Open Graph, balise canonique et données structurées schema.org (établissement sur l'accueil, logiciel sur `/commerces`). Le script écrit aussi `sitemap.xml`, `robots.txt` (tables, comptoir et API exclus), l'icône aux couleurs de la marque et le manifeste. Les pages des tables et du comptoir sont marquées `noindex`.
+
+Sans `SITE_URL`, le domaine de production Vercel est utilisé ; ailleurs, sans `SITE_URL`, pas de sitemap ni de balise canonique. Une fois en ligne, déclarez le site dans Google Search Console et soumettez `/sitemap.xml`.
 
 ## Temps réel
 
@@ -91,7 +105,11 @@ Si les variables `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` (ou `KV_
 
 1. Mettre ce dossier dans un dépôt GitHub.
 2. Sur vercel.com : **Add New → Project**, importer le dépôt, cliquer sur **Deploy** (les réglages sont dans `vercel.json`).
-3. Dans **Settings → Environment Variables**, ajouter `STAFF_PASSWORD` (le mot de passe des employés) et `SESSION_SECRET` (longue chaîne aléatoire).
+3. Dans **Settings → Environment Variables**, ajouter `STAFF_PASSWORD` (le mot de passe des employés), `SESSION_SECRET` (longue chaîne aléatoire), `SITE_URL` et les variables `LEGAL_*`.
 4. Dans le projet Vercel : **Storage → Create Database → Upstash for Redis** (offre gratuite), puis le relier au projet. Vercel ajoute les variables tout seul.
 5. **Deployments → Redeploy** pour prendre en compte la base.
 6. Imprimer les QR codes depuis **Espace employés → QR codes**.
+
+## Carte du code
+
+Voir [docs/CARTE-DU-CODE.md](docs/CARTE-DU-CODE.md).

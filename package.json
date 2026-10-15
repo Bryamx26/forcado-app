@@ -4,7 +4,7 @@
   "description": "Commande à table par QR code pour Forcado",
   "scripts": {
     "dev": "concurrently -n api,web \"node --watch server/index.js --dev\" \"vite\"",
-    "build": "vite build",
+    "build": "vite build && node scripts/seo.js",
     "start": "node server/index.js",
     "qr": "node scripts/qr.js"
   },
@@ -16,6 +16,8 @@
     "express": "^5.2.1"
   },
   "devDependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/playfair-display": "^5.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
     "qrcode": "^1.5.4",

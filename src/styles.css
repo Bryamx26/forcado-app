@@ -372,3 +372,64 @@ button { font: inherit; cursor: pointer; }
 .editor-choice .editor-input { flex: 1; }
 .editor-choice .editor-price { flex: none; width: 80px; text-align: right; }
 .editor-footer { display: flex; justify-content: flex-end; gap: 10px; position: sticky; bottom: -18px; background: var(--paper); padding: 12px 0 2px; }
+/* Pages publiques : À propos, offre commerces, mentions légales */
+.site { min-height: 100vh; display: flex; flex-direction: column; background: var(--cream); }
+.site-header {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  max-width: 960px; width: 100%; margin: 0 auto; padding: 18px 16px; border-bottom: 2px solid var(--blue);
+}
+.site-header .logo { text-decoration: none; }
+.site-nav { display: flex; gap: 18px; flex-wrap: wrap; }
+.site-nav a { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; }
+.site-nav a:hover { color: var(--blue); }
+.site-main { flex: 1; width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; line-height: 1.6; }
+.site-wide { max-width: 960px; }
+.site-main h1 { font-family: 'Playfair Display', Georgia, serif; color: var(--blue); font-size: clamp(28px, 5vw, 42px); line-height: 1.15; margin: 12px 0; }
+.site-main h2 { font-family: 'Playfair Display', Georgia, serif; color: var(--blue); font-size: 24px; margin: 36px 0 12px; }
+.site-main h3 { font-size: 16px; margin: 0 0 4px; }
+.site-main a { color: var(--blue); }
+.site-main a.btn { color: #fff; }
+.site-main a.btn-ghost { color: var(--blue); }
+.site-hero { width: 100%; height: 260px; object-fit: cover; border-radius: 20px; display: block; margin-top: 8px; }
+.plain { list-style: none; padding: 0; }
+.todo { background: var(--custard-soft); color: #8a5a00; padding: 0 4px; border-radius: 4px; font-size: 14px; }
+.legal-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 12px; }
+.legal-table th, .legal-table td { text-align: left; vertical-align: top; padding: 10px 8px; border-top: 1px solid var(--line); }
+.legal-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+@media (max-width: 600px) {
+  .legal-table thead { display: none; }
+  .legal-table tr { display: block; border-top: 1px solid var(--line); padding: 8px 0; }
+  .legal-table td { display: block; border: 0; padding: 2px 0; }
+  .legal-table td:first-child { font-weight: 600; }
+}
+
+.offer-hero { text-align: center; padding: 24px 0 8px; }
+.offer-hero h1 { max-width: 760px; margin: 12px auto; }
+.lead { font-size: 18px; max-width: 640px; margin: 0 auto 22px; color: var(--ink); }
+.offer-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+.benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.benefits div, .feature {
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.benefits strong { color: var(--blue); font-size: 17px; }
+.features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.feature p { margin: 0; color: var(--muted); font-size: 15px; }
+@media (max-width: 700px) { .benefits, .features { grid-template-columns: 1fr; } }
+.pricing { text-align: center; background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 8px 20px 20px; margin-top: 36px; }
+.price { font-size: 32px; font-weight: 700; color: var(--blue); }
+.faq { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; }
+.faq summary { font-weight: 600; cursor: pointer; }
+.faq p { margin: 8px 0 0; color: var(--muted); }
+.contact-form { display: flex; flex-direction: column; gap: 14px; max-width: 520px; }
+.field textarea {
+  font: inherit; font-weight: 400; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; resize: vertical;
+}
+.field textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+
+.site-footer {
+  text-align: center; padding: 24px 16px; display: flex; flex-direction: column; gap: 8px; align-items: center;
+}
+.site-footer nav { display: flex; gap: 6px 18px; flex-wrap: wrap; justify-content: center; }
+.site-footer a { color: var(--muted); font-size: 13px; }
+.home .site-footer { padding-bottom: 0; }
