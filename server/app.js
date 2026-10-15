@@ -4,7 +4,10 @@ import { store } from './store.js';
 import { brand } from './config.js';
 import { mountAuth, requireStaff } from './auth.js';
 import { mountEvents, notify } from './events.js';
+import { securityHeaders, sameOrigin, rateLimit } from './security.js';
 
+// Nombre de tables de l'établissement : au-delà, la commande est refusée.
+const MAX_TABLES = Math.min(999, parseInt(process.env.MAX_TABLES, 10) || 999);
 const STATUSES = ['nouvelle', 'en_cours', 'prete', 'servie', 'annulee'];
 const round = (n) => Math.round(n * 100) / 100;
 
@@ -40,7 +43,16 @@ function buildLine(raw, menu) {
 }
 
 const app = express();
-app.use(express.json({ limit: '1mb' }));
+app.disable('x-powered-by');
+app.use(securityHeaders);
+app.use('/api', sameOrigin);
+// Les photos de la carte (déjà réduites dans le navigateur) ont besoin d'une limite plus large.
+app.use('/api/admin/images', express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '50kb' }));
+// Limites par IP contre l'envoi massif de fausses commandes et l'ouverture de flux en boucle.
+app.post('/api/orders', rateLimit('orders', 20, 10 * 60, 'Trop de commandes envoyées. Demandez au comptoir.'));
+app.get('/api/orders/track', rateLimit('track', 120, 60));
+app.get('/api/events', rateLimit('events', 30, 60));
 mountAuth(app);
 mountEvents(app);
 
@@ -126,7 +138,7 @@ app.get('/api/images/:id', async (req, res, next) => {
 
 // Suivi côté client : uniquement ses propres commandes, et seulement leur statut.
 app.get('/api/orders/track', async (req, res, next) => {
-  const ids = String(req.query.ids || '').split(',').filter(Boolean).slice(0, 20);
+  const ids = String(req.query.ids || '').split(',').filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 20);
   try {
     const orders = await store.get(ids);
     res.set('Cache-Control', 'no-store').json(
@@ -149,7 +161,7 @@ app.get('/api/orders', requireStaff, async (_req, res, next) => {
 
 app.post('/api/orders', async (req, res, next) => {
   const table = parseInt(req.body?.table, 10);
-  if (!table || table < 1 || table > 999) return res.status(400).json({ error: 'Numéro de table invalide' });
+  if (!table || table < 1 || table > MAX_TABLES) return res.status(400).json({ error: 'Numéro de table invalide' });
   const lines = req.body?.lines;
   if (!Array.isArray(lines) || lines.length === 0) return res.status(400).json({ error: 'Le panier est vide' });
   let built;
