@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, euro, STATUS_LABELS } from '../api.js';
 import { useBrand } from '../brand.js';
 import { useLiveEvents } from '../live.js';
-import { Alert, Logo, Modal, useToast } from '../components/ui.jsx';
+import { Alert, Logo, Modal, StatusBadge, useToast } from '../components/ui.jsx';
 
 const storageKey = (table) => `forcado-orders-table-${table}`;
 
@@ -141,6 +141,13 @@ function Progress({ status }) {
 function OrderTracker({ table, live }) {
   const [orders, setOrders] = useState([]);
   const tickRef = useRef(() => {});
+  const seen = useRef({});
+
+  // Le client a lu l'avis d'annulation : la commande n'est plus suivie sur cet appareil.
+  const dismiss = (id) => {
+    localStorage.setItem(storageKey(table), JSON.stringify(readMyOrders(table).filter((x) => x !== id)));
+    setOrders((list) => list.filter((o) => o.id !== id));
+  };
 
   useEffect(() => {
     let alive = true;
@@ -149,7 +156,14 @@ function OrderTracker({ table, live }) {
       if (!ids.length) return;
       try {
         const data = await api.track(ids);
-        if (alive) setOrders(data.filter((o) => o.status !== 'servie' && o.status !== 'annulee').reverse());
+        if (!alive) return;
+        // Annulation vue pendant que la page est ouverte : petite vibration sur les téléphones qui le permettent.
+        if (data.some((o) => o.status === 'annulee' && seen.current[o.id] && seen.current[o.id] !== 'annulee')) {
+          navigator.vibrate?.([200, 100, 200]);
+        }
+        seen.current = Object.fromEntries(data.map((o) => [o.id, o.status]));
+        // Les commandes annulées restent affichées jusqu'à ce que le client ferme l'avis.
+        setOrders(data.filter((o) => o.status !== 'servie').reverse());
       } catch {}
     };
     tickRef.current = tick;
@@ -168,15 +182,30 @@ function OrderTracker({ table, live }) {
   return (
     <section className="tracker" aria-live="polite">
       <h2>Suivi de vos commandes</h2>
-      {orders.map((o) => (
-        <div key={o.id} className="tracker-order">
-          <div className="tracker-head">
-            <strong>Commande n° {o.number}</strong>
+      {orders.map((o) =>
+        o.status === 'annulee' ? (
+          <div key={o.id} className="tracker-order tracker-cancelled" role="alert">
+            <div className="tracker-head">
+              <strong>Commande n° {o.number}</strong>
+              <StatusBadge status="annulee" />
+            </div>
+            <p className="small">
+              Votre commande a été annulée par l'équipe. Pour toute question, adressez-vous au comptoir.
+            </p>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => dismiss(o.id)}>
+              J'ai compris
+            </button>
           </div>
-          <Progress status={o.status} />
-          {o.status === 'prete' && <p className="small tracker-ready">Votre commande arrive à votre table.</p>}
-        </div>
-      ))}
+        ) : (
+          <div key={o.id} className="tracker-order">
+            <div className="tracker-head">
+              <strong>Commande n° {o.number}</strong>
+            </div>
+            <Progress status={o.status} />
+            {o.status === 'prete' && <p className="small tracker-ready">Votre commande arrive à votre table.</p>}
+          </div>
+        ),
+      )}
     </section>
   );
 }

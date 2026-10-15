@@ -322,6 +322,10 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; color: var(--in
 }
 .tracker h2 { font-size: var(--text-h3); line-height: var(--leading-h3); margin: 0 0 var(--space-2); }
 .tracker-order + .tracker-order { border-top: 1px solid var(--border-soft); margin-top: var(--space-3); padding-top: var(--space-3); }
+.tracker-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.tracker-cancelled { background: var(--danger-tint); border-radius: var(--radius-md); padding: var(--space-3); }
+.tracker-cancelled p { margin: var(--space-2) 0; color: var(--ink); }
+.tracker-order + .tracker-cancelled { margin-top: var(--space-3); }
 .tracker-ready { margin: var(--space-2) 0 0; color: var(--success); font-weight: 600; }
 .progress { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
 .progress li {
