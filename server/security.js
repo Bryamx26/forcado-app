@@ -1,89 +1,97 @@
-// Protections communes : en-têtes de sécurité et limitation du nombre de requêtes.
-// Sur Vercel, les en-têtes des pages statiques sont dans vercel.json ; ceux-ci couvrent l'API et le serveur local.
+// Protections communes : en-têtes de sécurité, adresse IP fiable et limite de requêtes.
 import { Redis } from '@upstash/redis';
-
-export const SECURITY_HEADERS = {
-  'Content-Security-Policy': [
-    "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
-    "font-src 'self'",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-  ].join('; '),
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  'Cross-Origin-Opener-Policy': 'same-origin',
-};
-
-export function securityHeaders(_req, res, next) {
-  res.set(SECURITY_HEADERS);
-  next();
-}
-
-// Adresse du client. Sur Vercel, x-forwarded-for est réécrit par la plateforme ; ailleurs, il peut être inventé
-// par le client, donc on ne le croit que si TRUST_PROXY est défini (serveur derrière un proxy de confiance).
-export function clientIp(req) {
-  if (process.env.VERCEL || process.env.TRUST_PROXY) {
-    const fwd = String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '');
-    if (fwd) return fwd.split(',')[0].trim();
-  }
-  return req.socket?.remoteAddress || 'inconnu';
-}
 
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
 
-// Compteurs par fenêtre de temps. Avec Redis, ils sont partagés entre toutes les instances Vercel.
-const memory = new Map();
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of memory) if (v.reset <= now) memory.delete(k);
-}, 60 * 1000).unref();
+// Sur Vercel, x-real-ip est posé par la plateforme et ne peut pas être falsifié par le client.
+// Ailleurs, on ne fait confiance qu'à l'adresse de la connexion (x-forwarded-for se falsifie librement).
+export function clientIp(req) {
+  if (process.env.VERCEL) {
+    const ip = req.headers['x-real-ip'] || String(req.headers['x-forwarded-for'] || '').split(',')[0];
+    if (ip) return String(ip).trim();
+  }
+  return req.socket?.remoteAddress || 'inconnue';
+}
 
-// Compte une tentative et renvoie true si la limite est dépassée.
-export async function overLimit(key, limit, windowSec) {
+// Compteur par fenêtre fixe. Avec Redis, la limite vaut pour toutes les instances Vercel à la fois.
+const local = new Map();
+export async function hit(key, windowSec) {
   const k = `forcado:rl:${key}`;
   if (redis) {
     try {
       const count = await redis.incr(k);
       if (count === 1) await redis.expire(k, windowSec);
-      return count > limit;
+      return count;
     } catch (e) {
-      console.error('Limiteur indisponible', e);
+      console.error('Limite de requêtes indisponible', e);
     }
   }
   const now = Date.now();
-  let entry = memory.get(k);
-  if (!entry || entry.reset <= now) {
+  let entry = local.get(k);
+  if (!entry || entry.reset < now) {
     entry = { count: 0, reset: now + windowSec * 1000 };
-    memory.set(k, entry);
+    local.set(k, entry);
   }
-  entry.count++;
-  return entry.count > limit;
+  if (local.size > 10000) for (const [key2, e] of local) if (e.reset < now) local.delete(key2);
+  return ++entry.count;
 }
 
-export async function resetLimit(key) {
+export async function clear(key) {
   const k = `forcado:rl:${key}`;
-  memory.delete(k);
+  local.delete(k);
   if (redis) await redis.del(k).catch(() => {});
 }
 
-// Middleware : au-delà de `limit` requêtes par `windowSec` secondes et par adresse, répond 429.
-export function rateLimit(name, limit, windowSec, message) {
+// Middleware : refuse au-delà de `limit` requêtes par IP sur `windowSec` secondes.
+export function rateLimit(name, limit, windowSec, message = 'Trop de requêtes. Réessayez dans un instant.') {
   return async (req, res, next) => {
-    if (await overLimit(`${name}:${clientIp(req)}`, limit, windowSec)) {
-      res.set('Retry-After', String(windowSec));
-      return res.status(429).json({ error: message });
+    try {
+      const count = await hit(`${name}:${clientIp(req)}`, windowSec);
+      if (count > limit) {
+        res.set('Retry-After', String(windowSec));
+        return res.status(429).json({ error: message });
+      }
+      next();
+    } catch (e) {
+      next(e);
     }
-    next();
   };
+}
+
+// Mêmes règles que les en-têtes de vercel.json, pour le serveur Express lancé hors Vercel.
+export const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+export function securityHeaders(_req, res, next) {
+  res.set({
+    'Content-Security-Policy': CSP,
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  });
+  next();
+}
+
+// Refuse les écritures venant d'un autre site (en plus du cookie SameSite=Lax).
+export function sameOrigin(req, res, next) {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const origin = req.headers.origin;
+  if (!origin) return next();
+  try {
+    if (new URL(origin).host === req.headers.host) return next();
+  } catch {}
+  res.status(403).json({ error: 'Origine refusée' });
 }

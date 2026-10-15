@@ -20,7 +20,17 @@ Le client scanne le QR code de sa table, choisit ses pâtisseries et boissons (a
 Le mot de passe commun se règle avec la variable d'environnement `STAFF_PASSWORD`. Chaque employé indique aussi son prénom, affiché sur les commandes qu'il prend en charge. La session dure 12 heures. Changer le mot de passe déconnecte tout le monde.
 
 - **Sur Vercel**, `STAFF_PASSWORD` est obligatoire : sans elle, la connexion est désactivée. Ajoutez-la dans **Settings → Environment Variables**, puis redéployez.
-- **En local**, sans variable, le mot de passe est `forcado`.
+- **Avec `npm start`** (serveur hors Vercel), `STAFF_PASSWORD` est aussi obligatoire.
+- **Avec `npm run dev`** seulement, sans variable, le mot de passe de démonstration est `forcado`.
+- Choisissez un mot de passe d'au moins 10 caractères, et ajoutez `SESSION_SECRET` (une longue chaîne aléatoire, par exemple `openssl rand -hex 32`) pour signer les sessions.
+
+## Sécurité
+
+- Prix toujours recalculés par le serveur à partir de la carte.
+- Connexion limitée à 10 essais par adresse IP toutes les 15 minutes ; commandes limitées à 20 par adresse IP toutes les 10 minutes. Avec Redis, ces limites valent pour tout le site.
+- `MAX_TABLES` (facultatif) : nombre de tables de l'établissement ; une commande pour une table au-delà est refusée.
+- Polices servies par le site lui-même : aucun appel à Google, donc aucune adresse IP de visiteur transmise.
+- En-têtes de sécurité (CSP, anti-iframe, HSTS) dans `vercel.json` et `server/security.js`. Si vous ajoutez un service externe (paiement, statistiques), autorisez son domaine dans la CSP des deux fichiers.
 
 ## Lancer
 
@@ -34,7 +44,7 @@ npm start          # serveur sur http://localhost:3001
 
 - Client : `http://<adresse>:3001/table/5` (le QR code de la table 5 ouvre cette page)
 - Comptoir : `http://<adresse>:3001/comptoir` (sur la tablette ou l'écran derrière le comptoir ; un bip sonne à chaque nouvelle commande, après un premier clic sur la page)
-- Mot de passe local : `forcado`, ou `STAFF_PASSWORD=monmotdepasse npm start`
+- Mot de passe : `STAFF_PASSWORD=monmotdepasse npm start`
 
 Pour développer avec rechargement à chaud : `npm run dev` puis ouvrir `http://localhost:5173`.
 
@@ -73,14 +83,6 @@ La carte est dans `server/menu.js` : produits, prix, emoji et options (choix uni
 
 Sans `SITE_URL`, le domaine de production Vercel est utilisé ; ailleurs, sans `SITE_URL`, pas de sitemap ni de balise canonique. Une fois en ligne, déclarez le site dans Google Search Console et soumettez `/sitemap.xml`.
 
-## Sécurité
-
-- En-têtes de sécurité sur toutes les réponses (CSP stricte, HSTS, anti-iframe, `nosniff`) : `server/security.js` et `vercel.json`.
-- Limites anti-abus par adresse IP, partagées entre instances via Redis : 10 essais de connexion par quart d'heure, 40 commandes par 10 minutes (assez large pour tout le Wi-Fi d'une boutique).
-- Prix recalculés par le serveur, corps de requête limité à 20 Ko.
-- Polices hébergées par le site : aucun appel à Google.
-- `STAFF_PASSWORD` : au moins 10 caractères. Sur Vercel, ajoutez aussi `SESSION_SECRET` (longue valeur aléatoire, par ex. `openssl rand -hex 32`) : sinon les sessions sont signées avec une clé dérivée du mot de passe.
-
 ## Temps réel
 
 Les écrans se mettent à jour dès qu'une commande arrive ou change de statut, ou qu'un produit est épuisé (en moins d'une seconde). Le serveur garde une connexion ouverte avec chaque écran (`/api/events`, Server-Sent Events) et la renouvelle toutes les 50 secondes. Sur Vercel, le signal passe par Redis (pub/sub). Une vérification régulière reste active en secours si la connexion se coupe.
@@ -95,7 +97,7 @@ Si les variables `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` (ou `KV_
 
 1. Mettre ce dossier dans un dépôt GitHub.
 2. Sur vercel.com : **Add New → Project**, importer le dépôt, cliquer sur **Deploy** (les réglages sont dans `vercel.json`).
-3. Dans **Settings → Environment Variables**, ajouter `STAFF_PASSWORD` (le mot de passe des employés), `SESSION_SECRET`, `SITE_URL` et les variables `LEGAL_*`.
+3. Dans **Settings → Environment Variables**, ajouter `STAFF_PASSWORD` (le mot de passe des employés), `SESSION_SECRET` (longue chaîne aléatoire), `SITE_URL` et les variables `LEGAL_*`.
 4. Dans le projet Vercel : **Storage → Create Database → Upstash for Redis** (offre gratuite), puis le relier au projet. Vercel ajoute les variables tout seul.
 5. **Deployments → Redeploy** pour prendre en compte la base.
 6. Imprimer les QR codes depuis **Espace employés → QR codes**.

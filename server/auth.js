@@ -1,25 +1,28 @@
 // Connexion des employés : un mot de passe commun (STAFF_PASSWORD) et un cookie de session signé.
 // Rien n'est stocké côté serveur, ce qui fonctionne aussi avec les fonctions Vercel.
 import crypto from 'node:crypto';
-import { clientIp, overLimit, resetLimit } from './security.js';
+import { clientIp, hit, clear } from './security.js';
 
 const COOKIE = 'staff_session';
 const MAX_AGE = 12 * 60 * 60; // 12 h, une journée de service
 
-const isProd = Boolean(process.env.VERCEL) || process.env.NODE_ENV === 'production';
-const password = process.env.STAFF_PASSWORD || (isProd ? null : 'forcado');
-if (!process.env.STAFF_PASSWORD && !isProd) {
+// Le mot de passe de démonstration n'existe qu'avec `npm run dev` : un serveur lancé avec `npm start` ou sur Vercel l'exige.
+const isDev = process.argv.includes('--dev') && !process.env.VERCEL && process.env.NODE_ENV !== 'production';
+const password = process.env.STAFF_PASSWORD || (isDev ? 'forcado' : null);
+if (!process.env.STAFF_PASSWORD && isDev) {
   console.warn('STAFF_PASSWORD non défini : mot de passe de développement « forcado ».');
 }
-if (process.env.STAFF_PASSWORD && process.env.STAFF_PASSWORD.length < 10) {
+
+if (password && password.length < 10 && !isDev) {
   console.warn('STAFF_PASSWORD est court : utilisez au moins 10 caractères.');
 }
-if (isProd && !process.env.SESSION_SECRET) {
-  console.warn('SESSION_SECRET non défini : définissez une valeur aléatoire longue pour signer les sessions.');
+if (password && !process.env.SESSION_SECRET && !isDev) {
+  console.warn('SESSION_SECRET non défini : les sessions sont signées avec une clé dérivée du mot de passe.');
 }
 
 // Changer le mot de passe déconnecte toutes les sessions en cours.
-const secret = process.env.SESSION_SECRET || crypto.createHash('sha256').update(`session:${password}`).digest('hex');
+// Sans SESSION_SECRET, la clé est dérivée lentement (scrypt) pour qu'un cookie volé ne permette pas de deviner le mot de passe.
+const secret = process.env.SESSION_SECRET || (password ? crypto.scryptSync(password, 'forcado:session', 32) : 'aucune');
 
 const sign = (data) => crypto.createHmac('sha256', secret).update(data).digest('base64url');
 
@@ -65,6 +68,10 @@ function samePassword(given) {
   return crypto.timingSafeEqual(a, b);
 }
 
+// Limite contre les essais en série : 10 échecs par IP sur 15 minutes, partagée entre instances via Redis.
+const LOGIN_WINDOW = 15 * 60;
+const LOGIN_MAX = 10;
+
 export function staffFrom(req) {
   return readToken(getCookie(req, COOKIE));
 }
@@ -81,15 +88,17 @@ export function mountAuth(app) {
     if (!password) {
       return res.status(503).json({ error: "Connexion désactivée : la variable STAFF_PASSWORD n'est pas configurée." });
     }
-    // 10 essais par quart d'heure et par adresse, partagés entre instances quand Redis est configuré.
     const key = `login:${clientIp(req)}`;
-    if (await overLimit(key, 10, 15 * 60)) return res.status(429).json({ error: 'Trop d\'essais. Réessayez dans quelques minutes.' });
-    const name = String(req.body?.name || '').trim().slice(0, 30);
+    // Chaque essai compte d'abord, ce qui empêche d'en lancer beaucoup en parallèle avant le blocage.
+    if ((await hit(key, LOGIN_WINDOW)) > LOGIN_MAX) {
+      return res.status(429).json({ error: 'Trop d\'essais. Réessayez dans quelques minutes.' });
+    }
+    const name = String(req.body?.name || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 30);
     if (!samePassword(req.body?.password || '')) {
       await new Promise((r) => setTimeout(r, 600));
       return res.status(401).json({ error: 'Mot de passe incorrect' });
     }
-    await resetLimit(key);
+    await clear(key);
     setCookie(req, res, makeToken(name), MAX_AGE);
     res.json({ name });
   });
