@@ -1,10 +1,4 @@
-Photos des produits
+Photos fournies avec l'app
 
-Déposez ici une photo par produit, nommée avec l'identifiant du produit (voir server/menu.js) :
-  nata.jpg, berlim.jpg, pao-deus.jpg, travesseiro.jpg, queijada.jpg, bolo-arroz.jpg,
-  bica.jpg, galao.jpg, cha.jpg, jus.jpg
-
-Format conseillé : JPG carré ou 4:3, environ 800 px de large, moins de 200 Ko.
-Photo de la page d'accueil : accueil.jpg (format paysage).
-Sans photo, l'app affiche l'emoji du produit.
-Pour utiliser un autre nom ou une adresse externe, ajoutez `image: '/produits/mon-fichier.jpg'` au produit dans server/menu.js.
+Ce dossier contient les photos de la carte de départ et de la page d'accueil (accueil.jpg, format paysage).
+Pour les articles, le plus simple est d'ajouter la photo depuis l'espace employés : Carte > Modifier > Ajouter une photo.

@@ -65,7 +65,7 @@ Remplacez l'adresse par celle du serveur (l'IP de l'ordinateur sur le Wi-Fi de l
 Tout ce qui est propre à Forcado est réglable sans toucher au code de l'interface :
 
 - **Identité** dans `server/config.js` ou par variables d'environnement : `BRAND_NAME`, `BRAND_TAGLINE`, `BRAND_PRIMARY` (couleur principale), `BRAND_ACCENT`, `BRAND_CURRENCY`, `BRAND_LOCALE`, `BRAND_PAYMENT_NOTE`, `BRAND_WEBSITE`.
-- **Carte** dans `server/menu.js`.
+- **Carte** depuis l'espace employés, onglet **Carte** (la carte de départ de `server/menu.js` n'est chargée qu'une fois, dans une base vide).
 
 - **Pages légales** : `LEGAL_COMPANY`, `LEGAL_ADDRESS`, `LEGAL_VAT` (numéro BCE), `LEGAL_EMAIL`, `LEGAL_PHONE`. Tant qu'elles manquent, les pages affichent « à compléter ».
 - **Page Pour les commerces** : `VENDOR_NAME`, `VENDOR_EMAIL` (le formulaire de contact n'apparaît qu'avec lui), `VENDOR_PHONE`, `VENDOR_PRICE` (sinon « Sur devis »), `VENDOR_DEMO_URL` (une installation de démo, pour que les essais ne tombent pas dans les commandes d'un vrai commerce). `VENDOR_SHOW_OFFER=false` masque la page et ses liens.
@@ -75,7 +75,15 @@ Un nouveau client = une copie du dépôt, un projet Vercel, une base Upstash, se
 
 ## La carte
 
-La carte est dans `server/menu.js` : produits, prix, emoji et options (choix unique ou multiple, avec supplément éventuel). **Les prix actuels sont des exemples**, à remplacer par les vrais. Les prix sont toujours recalculés par le serveur, le client ne peut pas les modifier.
+La carte se gère dans **Espace employés → Carte** :
+
+- créer, renommer, réordonner et supprimer des catégories (une catégorie doit être vide pour être supprimée ; une catégorie vide n'est pas montrée aux clients) ;
+- créer, modifier, réordonner et supprimer des articles : nom, description, prix, emoji, photo et options (un seul choix obligatoire ou plusieurs choix facultatifs, avec supplément éventuel) ;
+- marquer un article épuisé pour la journée.
+
+Les changements apparaissent immédiatement chez les clients. Les photos sont réduites par le navigateur (800 px) puis stockées dans Redis (`data/images/` en local). Supprimer un article ne change pas les commandes déjà passées.
+
+Au premier démarrage sur une base vide, la carte d'exemple de `server/menu.js` est chargée. **Ses prix sont des exemples**, à remplacer. Les prix sont toujours recalculés par le serveur, le client ne peut pas les modifier.
 
 ## Référencement (SEO)
 

@@ -1,6 +1,7 @@
-// Carte d'exemple inspirée d'une pastelaria portugaise.
+// Carte de départ, chargée la toute première fois (base vide).
+// Ensuite, la carte se gère depuis l'espace employés (onglet Carte) et vit dans la base.
 // Les prix sont indicatifs : à remplacer par la vraie carte de Forcado.
-export const menu = [
+export const defaultMenu = [
   {
     id: 'patisseries',
     name: 'Pâtisseries',
@@ -11,6 +12,7 @@ export const menu = [
         description: 'Le classique : pâte feuilletée croustillante et crème cuite caramélisée.',
         price: 1.9,
         emoji: '🥧',
+        image: '/produits/nata.jpg',
         options: [
           { id: 'topping', name: 'Garniture', type: 'single', required: true, choices: [
             { id: 'nature', name: 'Nature', price: 0 },
@@ -147,11 +149,3 @@ export const menu = [
     ],
   },
 ];
-
-export function findItem(id) {
-  for (const cat of menu) {
-    const item = cat.items.find((i) => i.id === id);
-    if (item) return item;
-  }
-  return null;
-}

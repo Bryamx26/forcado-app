@@ -28,7 +28,8 @@ graph LR
     app --> events[server/events.js<br/>SSE + Redis pub/sub]
     app --> security[server/security.js<br/>en-têtes, limites]
     auth --> security
-    app --> menu[server/menu.js<br/>carte]
+    app --> catalog[server/catalog.js<br/>carte, photos]
+    catalog --> menu[server/menu.js<br/>carte de départ]
     app --> store[server/store.js<br/>Redis ou fichier]
     app --> config[server/config.js<br/>marque, légal, éditeur]
   end
@@ -42,7 +43,7 @@ graph LR
 | Besoin | Fichier |
 | --- | --- |
 | Changer le nom, les couleurs, les infos légales | `server/config.js` (ou variables `BRAND_*`, `LEGAL_*`, `VENDOR_*`) |
-| Changer la carte | `server/menu.js` |
+| Changer la carte | Espace employés, onglet Carte (logique : `server/catalog.js`, carte de départ : `server/menu.js`) |
 | Ajouter une route d'API | `server/app.js` |
 | Ajouter une page publique | `src/pages/site/`, `SITE_PAGES` dans `src/App.jsx`, `src/seo.js`, rewrites de `vercel.json` |
 | En-têtes de sécurité, limites anti-abus | `server/security.js` (et `vercel.json` pour les pages statiques) |
