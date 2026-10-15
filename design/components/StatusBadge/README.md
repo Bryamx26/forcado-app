@@ -46,4 +46,4 @@ export function StatusBadge({ status, comptoir = false }) {
 
 ## Accessibilité
 
-Contraste texte sur teinte : au moins 4.5:1 dans les deux thèmes. Le badge n'est jamais un bouton ; l'action de changement de statut est un bouton séparé de l'OrderTicket.
+Contraste texte sur teinte : au moins 4.5:1. Le badge n'est jamais un bouton ; l'action de changement de statut est un bouton séparé de l'OrderTicket.

@@ -116,4 +116,4 @@ Voir [docs/CARTE-DU-CODE.md](docs/CARTE-DU-CODE.md).
 
 ## Design system
 
-Couleurs, polices, composants et règles d'accessibilité sont décrits dans [DESIGN.md](DESIGN.md) (guides détaillés dans [`design/`](design/)). Les tokens vivent dans `src/theme.css` ; l'app passe automatiquement en thème sombre si le téléphone ou la tablette l'est.
+Couleurs, polices, composants et règles d'accessibilité sont décrits dans [DESIGN.md](DESIGN.md) (guides détaillés dans [`design/`](design/)). Les tokens vivent dans `src/theme.css` ; l'app a un seul thème, clair.

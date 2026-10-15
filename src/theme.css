@@ -1,7 +1,8 @@
 /* Tokens du design system (DESIGN.md, section 2). Copie exacte de design/tokens.json :
    pour un autre commerce, changer ces valeurs ou les variables BRAND_* (voir DESIGN.md, section 10).
-   Le thème sombre suit le réglage du téléphone ou de la tablette ; l'impression (QR codes) reste en clair. */
+   Un seul thème, clair, quel que soit le réglage de l'appareil. */
 :root {
+  color-scheme: light;
   /* — Surfaces (clair) — */
   --surface-page: #FBF6EC;
   --surface-raised: #F3EADB;
@@ -34,6 +35,7 @@
 
   /* — Typographie — */
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-logo: "Playfair Display", Georgia, serif; /* nom de l'établissement, en italique */
   --font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
@@ -71,60 +73,4 @@
   /* — Tactile — */
   --touch-min: 44px;
   --touch-comptoir: 48px;
-}
-
-/* Thème sombre : nuit bleue azulejo */
-@media screen and (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --surface-page: #15202E;
-    --surface-raised: #1E2B3C;
-    --surface-card: #1B2736;
-    --surface-sunken: #0F1826;
-    --border-soft: #2C3B4F;
-    --border-strong: #8C9BAE;
-    --ink: #F5EDE0;
-    --ink-muted: #C9BBA8;
-    --ink-on-brand: #0F1B2B;
-    --brand-blue: #8DB4E8;
-    --brand-blue-strong: #B9D3F2;
-    --brand-blue-tint: #22344B;
-    --accent-caramel: #E0A46A;
-    --accent-caramel-strong: #E0A46A;
-    --accent-caramel-tint: #3A2C1E;
-    --success: #7CC692;
-    --success-tint: #1F3A29;
-    --danger: #F08A7A;
-    --danger-tint: #3F2420;
-    --focus-ring: #F5EDE0;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --surface-page: #15202E;
-  --surface-raised: #1E2B3C;
-  --surface-card: #1B2736;
-  --surface-sunken: #0F1826;
-  --border-soft: #2C3B4F;
-  --border-strong: #8C9BAE;
-  --ink: #F5EDE0;
-  --ink-muted: #C9BBA8;
-  --ink-on-brand: #0F1B2B;
-  --brand-blue: #8DB4E8;
-  --brand-blue-strong: #B9D3F2;
-  --brand-blue-tint: #22344B;
-  --accent-caramel: #E0A46A;
-  --accent-caramel-strong: #E0A46A;
-  --accent-caramel-tint: #3A2C1E;
-  --success: #7CC692;
-  --success-tint: #1F3A29;
-  --danger: #F08A7A;
-  --danger-tint: #3F2420;
-  --focus-ring: #F5EDE0;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
 }

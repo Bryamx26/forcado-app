@@ -32,7 +32,7 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; color: var(--in
 
 /* Logo : le nom en Fraunces, ou l'image de la marque (32 px en en-tête, 64 px en accueil et connexion). */
 .logo {
-  font-family: var(--font-display); font-weight: 600; color: var(--brand-blue);
+  font-family: var(--font-logo); font-style: italic; font-weight: 600; letter-spacing: 0.02em; color: var(--brand-blue);
   font-size: var(--text-h1); line-height: var(--leading-h1); margin: 0; text-decoration: none; display: inline-block;
 }
 .logo img { display: block; height: 40px; width: auto; }
@@ -509,7 +509,7 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; color: var(--in
   background: var(--surface-card);
 }
 .qr-card img { width: 100%; max-width: 200px; background: #fff; border-radius: var(--radius-sm); }
-.qr-brand { font-family: var(--font-display); font-weight: 600; font-size: var(--text-h2); line-height: var(--leading-h2); color: var(--brand-blue); }
+.qr-brand { font-family: var(--font-logo); font-style: italic; font-weight: 600; font-size: var(--text-h2); line-height: var(--leading-h2); color: var(--brand-blue); }
 .qr-table { font-size: var(--text-h1); line-height: var(--leading-h1); font-weight: 700; }
 
 @media print {

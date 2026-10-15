@@ -61,4 +61,4 @@ export function Button({ variant = "primary", size = "lg", loading = false, chil
 
 ## Accessibilité
 
-Contraste texte sur fond : 4.5:1 minimum dans les deux thèmes. Le focus est un anneau de 2 px décalé de 2 px. Un bouton qui n'est qu'une icône doit avoir un `aria-label`.
+Contraste texte sur fond : 4.5:1 minimum. Le focus est un anneau de 2 px décalé de 2 px. Un bouton qui n'est qu'une icône doit avoir un `aria-label`.
