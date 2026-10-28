@@ -44,11 +44,11 @@ export async function clear(key) {
   if (redis) await redis.del(k).catch(() => {});
 }
 
-// Middleware : refuse au-delà de `limit` requêtes par IP sur `windowSec` secondes.
-export function rateLimit(name, limit, windowSec, message = 'Trop de requêtes. Réessayez dans un instant.') {
+// Middleware : refuse au-delà de `limit` requêtes par IP (ou par la clé que renvoie keyOf) sur `windowSec` secondes.
+export function rateLimit(name, limit, windowSec, message = 'Trop de requêtes. Réessayez dans un instant.', keyOf = clientIp) {
   return async (req, res, next) => {
     try {
-      const count = await hit(`${name}:${clientIp(req)}`, windowSec);
+      const count = await hit(`${name}:${keyOf(req)}`, windowSec);
       if (count > limit) {
         res.set('Retry-After', String(windowSec));
         return res.status(429).json({ error: message });

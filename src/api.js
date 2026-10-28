@@ -19,8 +19,8 @@ export const api = {
   track: (ids) => request(`/api/orders/track?ids=${ids.join(',')}`),
   orders: () => request('/api/orders'),
   createOrder: (order) => request('/api/orders', { method: 'POST', body: order }),
-  setStatus: (id, status) => request(`/api/orders/${id}`, { method: 'PATCH', body: { status } }),
-  editOrder: (id, lines) => request(`/api/orders/${id}/lines`, { method: 'PUT', body: { lines } }),
+  setStatus: (id, status, from) => request(`/api/orders/${id}`, { method: 'PATCH', body: { status, from } }),
+  editOrder: (id, lines, basedOn) => request(`/api/orders/${id}/lines`, { method: 'PUT', body: { lines, basedOn } }),
   setAvailable: (itemId, available) =>
     request(`/api/menu/${itemId}/availability`, { method: 'PUT', body: { available } }),
   addCategory: (name) => request('/api/admin/categories', { method: 'POST', body: { name } }),
