@@ -227,10 +227,6 @@ app.patch('/api/orders/:id', requireStaff, async (req, res, next) => {
         error: `La commande n° ${current.number} est déjà « ${STATUS_TEXT[current.status]} » : un collègue l'a changée.`,
       });
     }
-    // Celui qui démarre la commande la prend en charge. Remise en attente : plus personne ne s'en occupe,
-    // sinon le nom de l'employé précédent resterait affiché quand un collègue la redémarre.
-    if (status === 'en_cours' && current.status !== 'en_cours') patch.handledBy = req.staff.name || null;
-    if (status === 'nouvelle') patch.handledBy = null;
     const order = await store.update(req.params.id, patch);
     if (!order) return res.status(404).json({ error: 'Commande introuvable' });
     await notify('orders');
@@ -281,7 +277,6 @@ app.put('/api/orders/:id/lines', requireStaff, async (req, res, next) => {
       lines,
       total: round(lines.reduce((s, l) => s + l.total, 0)),
       modifiedAt: now,
-      modifiedBy: req.staff.name || undefined,
       updatedAt: now,
     });
     await notify('orders');
