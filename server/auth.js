@@ -26,8 +26,8 @@ const secret = process.env.SESSION_SECRET || (password ? crypto.scryptSync(passw
 
 const sign = (data) => crypto.createHmac('sha256', secret).update(data).digest('base64url');
 
-function makeToken(name) {
-  const payload = Buffer.from(JSON.stringify({ name, exp: Date.now() + MAX_AGE * 1000 })).toString('base64url');
+function makeToken(name, exp = Date.now() + MAX_AGE * 1000) {
+  const payload = Buffer.from(JSON.stringify({ name, exp })).toString('base64url');
   return `${payload}.${sign(payload)}`;
 }
 
@@ -83,6 +83,8 @@ export function requireStaff(req, res, next) {
   next();
 }
 
+const cleanName = (raw) => String(raw || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 30);
+
 export function mountAuth(app) {
   app.post('/api/auth/login', async (req, res) => {
     if (!password) {
@@ -93,7 +95,8 @@ export function mountAuth(app) {
     if ((await hit(key, LOGIN_WINDOW)) > LOGIN_MAX) {
       return res.status(429).json({ error: 'Trop d\'essais. Réessayez dans quelques minutes.' });
     }
-    const name = String(req.body?.name || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 30);
+    const name = cleanName(req.body?.name);
+    if (!name) return res.status(400).json({ error: 'Indiquez votre prénom.' });
     if (!samePassword(req.body?.password || '')) {
       await new Promise((r) => setTimeout(r, 600));
       return res.status(401).json({ error: 'Mot de passe incorrect' });
@@ -106,6 +109,15 @@ export function mountAuth(app) {
   app.post('/api/auth/logout', (req, res) => {
     setCookie(req, res, '', 0);
     res.json({ ok: true });
+  });
+
+  // Changement d'employé sur un appareil partagé (tablette du comptoir) : sans cela, tout ce qui est fait sur
+  // l'appareil reste au nom de la première personne connectée. La session garde son expiration d'origine.
+  app.post('/api/auth/name', requireStaff, (req, res) => {
+    const name = cleanName(req.body?.name);
+    if (!name) return res.status(400).json({ error: 'Indiquez votre prénom.' });
+    setCookie(req, res, makeToken(name, req.staff.exp), Math.max(0, Math.floor((req.staff.exp - Date.now()) / 1000)));
+    res.json({ name });
   });
 
   app.get('/api/auth/me', (req, res) => {

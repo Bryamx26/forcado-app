@@ -96,7 +96,7 @@ function OrderCard({ order, column, now, onStatus, onEdit }) {
   );
 }
 
-export default function Orders({ onAuthError }) {
+export default function Orders({ staffName, onAuthError }) {
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
@@ -134,7 +134,8 @@ export default function Orders({ onAuthError }) {
 
   const onStatus = async (order, status, confirmed = false) => {
     if (status === 'annulee' && !confirmed) return setCancelling(order);
-    setOrders((os) => os.map((o) => (o.id === order.id ? { ...o, status } : o)));
+    const handledBy = status === 'en_cours' && order.status !== 'en_cours' ? staffName : status === 'nouvelle' ? null : order.handledBy;
+    setOrders((os) => os.map((o) => (o.id === order.id ? { ...o, status, handledBy } : o)));
     try {
       await api.setStatus(order.id, status, order.status);
     } catch (e) {

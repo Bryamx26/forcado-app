@@ -34,6 +34,7 @@ export const api = {
   uploadImage: (dataUrl) => request('/api/admin/images', { method: 'POST', body: { dataUrl } }),
   me: () => request('/api/auth/me'),
   login: (name, password) => request('/api/auth/login', { method: 'POST', body: { name, password } }),
+  switchStaff: (name) => request('/api/auth/name', { method: 'POST', body: { name } }),
   logout: () => request('/api/auth/logout', { method: 'POST' }),
 };
 
