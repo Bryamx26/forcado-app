@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { api, AuthError } from '../api.js';
+import { api } from '../api.js';
 import Login from './staff/Login.jsx';
 import Orders from './staff/Orders.jsx';
 import MenuAdmin from './staff/MenuAdmin.jsx';
 import QrCodes from './staff/QrCodes.jsx';
-import { Alert, Logo, Modal } from '../components/ui.jsx';
+import { Logo } from '../components/ui.jsx';
 
 const TABS = [
   { path: '/comptoir', label: 'Commandes' },
@@ -16,20 +16,11 @@ export default function Staff() {
   const [me, setMe] = useState(undefined);
   const [path, setPath] = useState(window.location.pathname.replace(/\/$/, '') || '/comptoir');
 
-  const [switching, setSwitching] = useState(false);
-
   useEffect(() => {
-    const check = () => api.me().then(setMe).catch(() => setMe(null));
-    check();
+    api.me().then(setMe).catch(() => setMe(null));
     const onPop = () => setPath(window.location.pathname);
-    // La session est partagée par tous les onglets du navigateur : un collègue a pu changer de nom dans un autre.
-    const onVisible = () => document.visibilityState === 'visible' && check();
     window.addEventListener('popstate', onPop);
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   if (me === undefined) return null;
@@ -66,15 +57,6 @@ export default function Staff() {
           ))}
         </nav>
         <div className="s-user">
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            title="Changer d'employé"
-            aria-label={`${me.name || 'Employé sans nom'} : changer d'employé`}
-            onClick={() => setSwitching(true)}
-          >
-            {me.name || 'Votre prénom ?'} <span aria-hidden="true">⇄</span>
-          </button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Déconnexion</button>
         </div>
       </header>
@@ -83,70 +65,8 @@ export default function Staff() {
       ) : path === '/comptoir/qr' ? (
         <QrCodes />
       ) : (
-        <Orders staffName={me.name} onAuthError={lost} />
-      )}
-      {switching && (
-        <SwitchStaff
-          current={me.name}
-          onDone={(next) => {
-            if (next) setMe(next);
-            setSwitching(false);
-          }}
-          onAuthError={() => {
-            setSwitching(false);
-            lost();
-          }}
-        />
+        <Orders onAuthError={lost} />
       )}
     </div>
-  );
-}
-
-// Sur la tablette du comptoir, chacun indique son prénom avant de prendre des commandes,
-// sans retaper le mot de passe : c'est ce nom qui apparaît sur les commandes qu'il démarre.
-function SwitchStaff({ current, onDone, onAuthError }) {
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setBusy(true);
-    setError('');
-    try {
-      const me = await api.switchStaff(name);
-      try {
-        localStorage.setItem('staff-name', me.name);
-      } catch {}
-      onDone(me);
-    } catch (err) {
-      if (err instanceof AuthError) return onAuthError();
-      setError(err.message);
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal
-      as="form"
-      title="Changer d'employé"
-      onClose={() => onDone(null)}
-      onSubmit={submit}
-      footer={
-        <>
-          <button type="button" className="btn btn-ghost" onClick={() => onDone(null)}>Annuler</button>
-          <button className="btn" disabled={busy || !name.trim()} aria-busy={busy || undefined}>
-            {busy ? 'Changement…' : 'Continuer'}
-          </button>
-        </>
-      }
-    >
-      {current && <p className="muted">Connecté en tant que {current}.</p>}
-      <label className="field">
-        Votre prénom
-        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={30} placeholder="Ex. Rui" required data-autofocus />
-      </label>
-      {error && <Alert>{error}</Alert>}
-    </Modal>
   );
 }
