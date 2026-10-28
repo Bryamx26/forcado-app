@@ -8,21 +8,26 @@ export function useLiveEvents(url, handlers) {
 
   useEffect(() => {
     if (typeof EventSource === 'undefined') return;
-    const es = new EventSource(url);
-    const types = ['orders', 'menu'];
-    const listeners = types.map((type) => {
-      const fn = () => ref.current[type]?.();
-      es.addEventListener(type, fn);
-      return [type, fn];
-    });
-    // Après une coupure, on recharge pour ne rien manquer de ce qui s'est passé entre-temps.
+    let es;
+    let retry;
     let opened = false;
-    es.onopen = () => {
-      if (opened) Object.values(ref.current).forEach((fn) => fn?.());
-      opened = true;
+    const connect = () => {
+      es = new EventSource(url);
+      for (const type of ['orders', 'menu']) es.addEventListener(type, () => ref.current[type]?.());
+      // Après une coupure, on recharge pour ne rien manquer de ce qui s'est passé entre-temps.
+      es.onopen = () => {
+        if (opened) Object.values(ref.current).forEach((fn) => fn?.());
+        opened = true;
+      };
+      // Si le serveur refuse le flux (trop de connexions, redémarrage), le navigateur abandonne pour de bon :
+      // on retente nous-mêmes un peu plus tard, à un moment différent pour chaque écran.
+      es.onerror = () => {
+        if (es.readyState === EventSource.CLOSED) retry = setTimeout(connect, 15000 + Math.random() * 15000);
+      };
     };
+    connect();
     return () => {
-      listeners.forEach(([type, fn]) => es.removeEventListener(type, fn));
+      clearTimeout(retry);
       es.close();
     };
   }, [url]);

@@ -172,7 +172,8 @@ function OrderTracker({ table, live }) {
   useEffect(() => {
     let alive = true;
     const tick = async () => {
-      const ids = readMyOrders(table);
+      // Une commande servie ne bouge plus : inutile de la redemander au serveur.
+      const ids = readMyOrders(table).filter((id) => seen.current[id]?.status !== 'servie');
       if (!ids.length) return;
       try {
         const data = await api.track(ids);
@@ -183,7 +184,7 @@ function OrderTracker({ table, live }) {
           return before && ((o.status === 'annulee' && before.status !== 'annulee') || o.modifiedAt !== before.modifiedAt);
         };
         if (data.some(changed)) navigator.vibrate?.([200, 100, 200]);
-        seen.current = Object.fromEntries(data.map((o) => [o.id, o]));
+        seen.current = { ...seen.current, ...Object.fromEntries(data.map((o) => [o.id, o])) };
         // Les commandes annulées restent affichées jusqu'à ce que le client ferme l'avis.
         setOrders(data.filter((o) => o.status !== 'servie').reverse());
       } catch {}
@@ -198,7 +199,21 @@ function OrderTracker({ table, live }) {
     };
   }, [table]);
 
-  useEffect(() => live.subscribe(() => tickRef.current()), [live]);
+  // Chaque changement au comptoir prévient tous les téléphones de la salle : on regroupe les signaux rapprochés
+  // et on étale les demandes pour ne pas les envoyer toutes au même instant.
+  useEffect(() => {
+    let timer;
+    const unsubscribe = live.subscribe(() => {
+      timer ??= setTimeout(() => {
+        timer = undefined;
+        tickRef.current();
+      }, 500 + Math.random() * 1500);
+    });
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
+  }, [live]);
 
   if (!orders.length) return null;
   return (
@@ -330,13 +345,24 @@ export default function Customer({ table }) {
     () => new Set((menu || []).flatMap((c) => c.items.filter((i) => i.soldOut).map((i) => i.id))),
     [menu],
   );
+  // Le panier suit la carte actuelle : si l'équipe change un prix ou retire un article pendant que le client
+  // choisit, il le voit avant d'envoyer (le serveur facture toujours au prix de la carte).
+  const menuItems = useMemo(() => new Map((menu || []).flatMap((c) => c.items).map((i) => [i.id, i])), [menu]);
+  const priced = useMemo(
+    () =>
+      cart.map((l) => {
+        const item = menuItems.get(l.item.id);
+        return item ? { ...l, item, price: unitPrice(item, l.options) } : { ...l, gone: !!menu };
+      }),
+    [cart, menuItems, menu],
+  );
 
   const goTo = (catId) => {
     setActiveCat(catId);
     document.getElementById(`cat-${catId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const total = useMemo(() => cart.reduce((s, l) => s + l.price * l.qty, 0), [cart]);
+  const total = useMemo(() => priced.reduce((s, l) => s + (l.gone ? 0 : l.price * l.qty), 0), [priced]);
   const count = cart.reduce((s, l) => s + l.qty, 0);
 
   const submit = async () => {
@@ -454,13 +480,14 @@ export default function Customer({ table }) {
         >
           {cart.length === 0 && <p className="muted">Votre panier est vide.</p>}
           <ul className="cart-lines">
-            {cart.map((l) => (
+            {priced.map((l) => (
               <li key={l.key} className="cart-line">
                 <span className="cart-qty">{l.qty} ×</span>
                 <div className="cart-info">
                   <div className="cart-name">
                     {l.item.name}
                     {soldOutIds.has(l.item.id) && <span className="status status-annulee tag">Épuisé</span>}
+                    {l.gone && <span className="status status-annulee tag">Plus à la carte</span>}
                   </div>
                   {optionSummary(l.item, l.options) && <div className="muted small">{optionSummary(l.item, l.options)}</div>}
                   {l.note && <div className="muted small">« {l.note} »</div>}

@@ -25,6 +25,8 @@ function beep() {
     gain.gain.setValueAtTime(0.2, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
     osc.connect(gain).connect(ctx.destination);
+    // Un contexte audio non fermé reste ouvert : au fil du service, le navigateur finit par les refuser.
+    osc.onended = () => ctx.close();
     osc.start();
     osc.stop(ctx.currentTime + 0.4);
   } catch {}
@@ -134,10 +136,12 @@ export default function Orders({ onAuthError }) {
     if (status === 'annulee' && !confirmed) return setCancelling(order);
     setOrders((os) => os.map((o) => (o.id === order.id ? { ...o, status } : o)));
     try {
-      await api.setStatus(order.id, status);
+      await api.setStatus(order.id, status, order.status);
     } catch (e) {
       if (e instanceof AuthError) return onAuthError();
-      setError(e.message);
+      // Rafraîchir d'abord : refresh efface le message d'erreur.
+      await refresh();
+      return setError(e.message);
     }
     refresh();
   };

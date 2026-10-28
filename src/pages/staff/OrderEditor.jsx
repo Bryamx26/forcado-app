@@ -118,7 +118,7 @@ export default function OrderEditor({ order, onClose, onSaved, onAuthError }) {
     setError('');
     try {
       const body = lines.map((l) => (l.keep !== undefined ? { keep: l.keep, qty: l.qty } : { itemId: l.itemId, qty: l.qty, options: l.options }));
-      onSaved(await api.editOrder(order.id, body));
+      onSaved(await api.editOrder(order.id, body, order.modifiedAt ?? null));
     } catch (e) {
       if (e instanceof AuthError) return onAuthError();
       setError(e.message);

@@ -2,19 +2,20 @@ import express from 'express';
 import { getMenu, findItem, catalog, saveImage, readImage, CatalogError } from './catalog.js';
 import { store } from './store.js';
 import { brand } from './config.js';
-import { mountAuth, requireStaff } from './auth.js';
+import { mountAuth, requireStaff, staffFrom } from './auth.js';
 import { mountEvents, notify } from './events.js';
-import { securityHeaders, sameOrigin, rateLimit } from './security.js';
+import { securityHeaders, sameOrigin, rateLimit, clientIp } from './security.js';
 
 // Nombre de tables de l'établissement : au-delà, la commande est refusée.
 const MAX_TABLES = Math.min(999, parseInt(process.env.MAX_TABLES, 10) || 999);
 const STATUSES = ['nouvelle', 'en_cours', 'prete', 'servie', 'annulee'];
+const STATUS_TEXT = { nouvelle: 'reçue', en_cours: 'en préparation', prete: 'prête', servie: 'servie', annulee: 'annulée' };
 const round = (n) => Math.round(n * 100) / 100;
 
 // Recalcule chaque ligne côté serveur à partir de la carte : le client ne fixe jamais les prix.
 function buildLine(raw, menu) {
   const item = menu.flatMap((c) => c.items).find((i) => i.id === raw?.itemId);
-  if (!item) throw new Error('Produit inconnu');
+  if (!item) throw new Error("Un article n'est plus à la carte. Retirez-le puis renvoyez la commande.");
   const qty = Math.max(1, Math.min(20, parseInt(raw.qty, 10) || 1));
   const chosen = raw.options || {};
   const options = [];
@@ -50,9 +51,18 @@ app.use('/api', sameOrigin);
 app.use('/api/admin/images', express.json({ limit: '1mb' }));
 app.use(express.json({ limit: '50kb' }));
 // Limites par IP contre l'envoi massif de fausses commandes et l'ouverture de flux en boucle.
-app.post('/api/orders', rateLimit('orders', 20, 10 * 60, 'Trop de commandes envoyées. Demandez au comptoir.'));
-app.get('/api/orders/track', rateLimit('track', 120, 60));
-app.get('/api/events', rateLimit('events', 30, 60));
+// Tous les téléphones branchés sur le wifi de l'établissement partagent la même adresse IP : les limites par IP
+// doivent donc tenir un coup de feu de toute la salle. La limite serrée s'applique par table.
+const tooManyOrders = 'Trop de commandes envoyées. Demandez au comptoir.';
+app.post('/api/orders', rateLimit('orders', 150, 10 * 60, tooManyOrders));
+app.post(
+  '/api/orders',
+  rateLimit('orders-table', 15, 10 * 60, tooManyOrders, (req) => `${clientIp(req)}:${parseInt(req.body?.table, 10) || 0}`),
+);
+app.get('/api/orders/track', rateLimit('track', 1200, 60));
+// Le flux des employés connectés n'est pas limité : le comptoir est souvent sur le même wifi que les clients.
+const eventsLimit = rateLimit('events', 300, 60);
+app.get('/api/events', (req, res, next) => (staffFrom(req) ? next() : eventsLimit(req, res, next)));
 mountAuth(app);
 mountEvents(app);
 
@@ -203,12 +213,21 @@ app.post('/api/orders', async (req, res, next) => {
   }
 });
 
+// from : le statut que l'employé voyait à l'écran. Si un collègue l'a changé entre-temps (commande annulée, déjà
+// démarrée…), on refuse au lieu d'écraser son geste. Une commande servie ou annulée ne change plus de statut.
 app.patch('/api/orders/:id', requireStaff, async (req, res, next) => {
-  const { status } = req.body || {};
+  const { status, from } = req.body || {};
   if (!STATUSES.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
   const patch = { status, updatedAt: new Date().toISOString() };
   if (status === 'en_cours' && req.staff.name) patch.handledBy = req.staff.name;
   try {
+    const [current] = await store.get([req.params.id]);
+    if (!current) return res.status(404).json({ error: 'Commande introuvable' });
+    if (current.status !== status && (['servie', 'annulee'].includes(current.status) || (from && from !== current.status))) {
+      return res.status(409).json({
+        error: `La commande n° ${current.number} est déjà « ${STATUS_TEXT[current.status]} » : un collègue l'a changée.`,
+      });
+    }
     const order = await store.update(req.params.id, patch);
     if (!order) return res.status(404).json({ error: 'Commande introuvable' });
     await notify('orders');
@@ -231,6 +250,13 @@ app.put('/api/orders/:id/lines', requireStaff, async (req, res, next) => {
     if (!order) return res.status(404).json({ error: 'Commande introuvable' });
     if (order.status === 'servie' || order.status === 'annulee') {
       return res.status(409).json({ error: 'Cette commande est terminée, elle ne peut plus être modifiée.' });
+    }
+    // basedOn : la version (modifiedAt) que l'employé a ouverte. Les lignes gardées sont désignées par leur position :
+    // si un collègue a modifié la commande entre-temps, ces positions ne désignent plus les mêmes articles.
+    if ('basedOn' in req.body && (order.modifiedAt ?? null) !== req.body.basedOn) {
+      return res.status(409).json({
+        error: `Un collègue vient de modifier la commande n° ${order.number}. Fermez et rouvrez-la pour repartir de la version à jour.`,
+      });
     }
     let lines;
     try {
