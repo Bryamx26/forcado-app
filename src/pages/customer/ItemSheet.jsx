@@ -2,30 +2,42 @@ import { useState } from 'react';
 import { euro } from '../../api.js';
 import { Modal } from '../../components/ui.jsx';
 import { MAX_LINE_QTY, MAX_NOTE_LENGTH } from '../../../shared/orderStatus.js';
-import { defaultSelection, isSingleChoice, toggleChoice, unitPrice } from '../../../shared/options.js';
+import { defaultSelection, isSelectionComplete, isSingleChoice, limitsHint, toggleChoice, unitPrice } from '../../../shared/options.js';
 import ProductVisual from './ProductVisual.jsx';
 import { useT } from '../../i18n.jsx';
 import AllergenInfo from './AllergenInfo.jsx';
 
+function OptionChoice({ group, choice, checked, onToggle }) {
+  const t = useT();
+  const out = choice.soldOut;
+  return (
+    <label className={`opt ${checked ? 'opt-on' : ''} ${out ? 'opt-out' : ''}`}>
+      <input
+        type={isSingleChoice(group) ? 'radio' : 'checkbox'}
+        name={group.id}
+        checked={checked}
+        disabled={out}
+        onChange={() => onToggle(group, choice.id)}
+      />
+      <span>{choice.name}</span>
+      {out && <span className="opt-soldout">{t('menu.soldOut')}</span>}
+      {!out && choice.price !== 0 && <span className="opt-price">{choice.price > 0 ? '+' : ''}{euro(choice.price)}</span>}
+    </label>
+  );
+}
+
 function OptionGroup({ group, selected, onToggle }) {
   const t = useT();
-  const single = isSingleChoice(group);
+  const hint = limitsHint(group);
   return (
     <fieldset className="opt-group">
       <legend>
         {group.name}
-        <span className="opt-hint">{t(single ? 'item.oneChoice' : 'common.optional')}</span>
+        <span className="opt-hint">{t(hint.key, hint.vars)}</span>
       </legend>
-      {group.choices.map((choice) => {
-        const checked = (selected[group.id] || []).includes(choice.id);
-        return (
-          <label key={choice.id} className={`opt ${checked ? 'opt-on' : ''}`}>
-            <input type={single ? 'radio' : 'checkbox'} name={group.id} checked={checked} onChange={() => onToggle(group, choice.id)} />
-            <span>{choice.name}</span>
-            {choice.price !== 0 && <span className="opt-price">{choice.price > 0 ? '+' : ''}{euro(choice.price)}</span>}
-          </label>
-        );
-      })}
+      {group.choices.map((choice) => (
+        <OptionChoice key={choice.id} group={group} choice={choice} checked={(selected[group.id] || []).includes(choice.id)} onToggle={onToggle} />
+      ))}
     </fieldset>
   );
 }
@@ -61,6 +73,7 @@ export default function ItemSheet({ item, onClose, onAdd }) {
           <button
             type="button"
             className="btn btn-lg btn-grow"
+            disabled={!isSelectionComplete(item, selected)}
             onClick={() => onAdd({ key: crypto.randomUUID(), item, options: selected, qty, note })}
           >
             {t('item.addFor', { price: euro(price * qty) })}

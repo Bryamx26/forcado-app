@@ -76,4 +76,12 @@ export default {
   'error.empty_cart': 'Je mandje is leeg',
   'error.invalid_table': 'Ongeldig tafelnummer',
   'error.rate_limited': 'Te veel bestellingen verstuurd. Vraag het aan de toog.',
+  'options.one': 'Eén keuze',
+  'options.optionalOne': 'Eén keuze, optioneel',
+  'options.upTo': 'Tot {max}, optioneel',
+  'options.exactly': '{count} keuzes',
+  'options.between': 'Tussen {min} en {max}',
+  'options.max': 'Maximum bereikt voor "{group}"',
+  'error.too_many_choices': 'Te veel keuzes bij een product.',
+  'error.choice_sold_out': 'Sorry, "{choice}" is net uitverkocht. Kies iets anders.',
 };

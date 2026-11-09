@@ -76,4 +76,12 @@ export default {
   'error.empty_cart': 'O cesto está vazio',
   'error.invalid_table': 'Número de mesa inválido',
   'error.rate_limited': 'Demasiados pedidos enviados. Pergunte ao balcão.',
+  'options.one': 'Uma escolha',
+  'options.optionalOne': 'Uma escolha, opcional',
+  'options.upTo': 'Até {max}, opcional',
+  'options.exactly': 'Escolha {count}',
+  'options.between': 'Entre {min} e {max}',
+  'options.max': 'Máximo atingido em «{group}»',
+  'error.too_many_choices': 'Demasiadas escolhas num artigo.',
+  'error.choice_sold_out': 'Lamentamos, «{choice}» acabou de esgotar. Escolha outra opção.',
 };

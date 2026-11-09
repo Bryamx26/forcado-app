@@ -30,6 +30,9 @@ adminRoutes.delete(
     return { ok: true };
   }),
 );
+adminRoutes.post('/option-sets', changeMenu((req) => catalog.addOptionSet(req.body)));
+adminRoutes.put('/option-sets/:id', changeMenu((req) => catalog.updateOptionSet(req.params.id, req.body)));
+adminRoutes.delete('/option-sets/:id', changeMenu((req) => catalog.deleteOptionSet(req.params.id)));
 adminRoutes.post('/items/:id/move', changeMenu((req) => catalog.moveItem(req.params.id, req.body?.dir)));
 
 adminRoutes.post(

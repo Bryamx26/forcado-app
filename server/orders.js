@@ -1,6 +1,7 @@
 // Règles métier des commandes, sans Express ni stockage : faciles à tester.
 import { ORDER_STATUS, isFinal, MAX_LINES, MAX_NOTE_LENGTH, STATUS_LABELS, clampQty } from '../shared/orderStatus.js';
 import { roundMoney } from '../shared/money.js';
+import { groupLimits, pickChoices } from '../shared/options.js';
 
 // code : identifiant stable de l'erreur, que l'écran du client traduit dans sa langue (avec vars si besoin).
 export class OrderError extends Error {
@@ -14,27 +15,41 @@ export class OrderError extends Error {
 
 const findMenuItem = (menu, itemId) => menu.flatMap((c) => c.items).find((i) => i.id === itemId);
 
-function selectedChoices(group, raw) {
-  let ids = raw ?? [];
-  if (!Array.isArray(ids)) ids = [ids];
-  if (group.type === 'single') ids = ids.slice(0, 1);
-  return ids.map((id) => group.choices.find((c) => c.id === id)).filter(Boolean);
+function checkGroup(item, group, choices) {
+  const { min, max } = groupLimits(group);
+  if (choices.length < min) throw new OrderError(`Choix manquant : ${item.name} / ${group.name}`, { code: 'choice_missing' });
+  if (choices.length > max) throw new OrderError(`Trop de choix : ${item.name} / ${group.name}`, { code: 'too_many_choices' });
+  const soldOut = choices.find((choice) => choice.soldOut);
+  if (soldOut) {
+    throw new OrderError(`Désolé, « ${soldOut.name} » vient d'être épuisé. Choisissez autre chose.`, {
+      status: 409,
+      code: 'choice_sold_out',
+      vars: { itemId: item.id, groupId: group.id, choiceId: soldOut.id, choice: soldOut.name },
+    });
+  }
 }
 
 // Recalcule une ligne à partir de la carte : le client ne fixe jamais les prix.
+// Les ruptures (soldOut) ne sont vérifiées que si la carte les porte : la carte du client les porte, celle de
+// l'équipe non, pour qu'elle puisse corriger une commande avec ce qui reste en cuisine.
 export function buildLine(raw, menu) {
   const item = findMenuItem(menu, raw?.itemId);
   if (!item) {
     throw new OrderError("Un article n'est plus à la carte. Retirez-le puis renvoyez la commande.", { code: 'item_gone' });
   }
+  if (item.soldOut) {
+    throw new OrderError(`Désolé, « ${item.name} » vient d'être épuisé. Retirez-le du panier.`, {
+      status: 409,
+      code: 'item_sold_out',
+      vars: { itemId: item.id },
+    });
+  }
   const chosen = raw.options || {};
   const options = [];
   let unit = item.price;
   for (const group of item.options) {
-    const choices = selectedChoices(group, chosen[group.id]);
-    if (group.required && choices.length === 0) {
-      throw new OrderError(`Choix manquant : ${item.name} / ${group.name}`, { code: 'choice_missing' });
-    }
+    const choices = pickChoices(group, chosen[group.id]);
+    checkGroup(item, group, choices);
     for (const choice of choices) {
       unit += choice.price;
       options.push({ group: group.name, choice: choice.name });

@@ -35,9 +35,26 @@ test('un groupe obligatoire sans choix est refusé', () => {
   assert.throws(() => buildLine({ itemId: 'galao', options: {} }, menu), (e) => e instanceof OrderError && e.code === 'choice_missing');
 });
 
-test('un groupe « un choix » ne garde que le premier choix', () => {
-  const line = buildLine({ itemId: 'galao', options: { lait: ['vache', 'avoine'] } }, menu);
-  assert.equal(line.options.length, 1);
+test('un groupe « un choix » refuse deux choix', () => {
+  assert.throws(() => buildLine({ itemId: 'galao', options: { lait: ['vache', 'avoine'] } }, menu), { code: 'too_many_choices' });
+});
+
+test('minimum et maximum de choix', () => {
+  const pastry = { id: 'p', name: 'P', price: 2, options: [{ id: 'g', name: 'Garnitures', min: 1, max: 2, choices: [
+    { id: 'a', name: 'A', price: 0.5 }, { id: 'b', name: 'B', price: 0.5 }, { id: 'c', name: 'C', price: 0 },
+  ] }] };
+  const m = [{ items: [pastry] }];
+  assert.throws(() => buildLine({ itemId: 'p', options: { g: [] } }, m), { code: 'choice_missing' });
+  assert.throws(() => buildLine({ itemId: 'p', options: { g: ['a', 'b', 'c'] } }, m), { code: 'too_many_choices' });
+  assert.equal(buildLine({ itemId: 'p', options: { g: ['a', 'b', 'a'] } }, m).unitPrice, 3);
+});
+
+test('un article ou un choix épuisé est refusé', () => {
+  const soldOutMenu = structuredClone(menu);
+  soldOutMenu[0].items[0].options[0].choices[1].soldOut = true;
+  assert.throws(() => buildLine({ itemId: 'galao', options: { lait: ['avoine'] } }, soldOutMenu), { code: 'choice_sold_out', status: 409 });
+  soldOutMenu[0].items[0].soldOut = true;
+  assert.throws(() => buildLine({ itemId: 'galao', options: { lait: ['vache'] } }, soldOutMenu), { code: 'item_sold_out' });
 });
 
 test('la quantité est bornée entre 1 et 20', () => {

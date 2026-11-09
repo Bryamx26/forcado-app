@@ -76,4 +76,12 @@ export default {
   'error.empty_cart': 'Your basket is empty',
   'error.invalid_table': 'Invalid table number',
   'error.rate_limited': 'Too many orders sent. Please ask at the counter.',
+  'options.one': 'One choice',
+  'options.optionalOne': 'One choice, optional',
+  'options.upTo': 'Up to {max}, optional',
+  'options.exactly': 'Choose {count}',
+  'options.between': 'Between {min} and {max}',
+  'options.max': 'Maximum reached for "{group}"',
+  'error.too_many_choices': 'Too many choices for an item.',
+  'error.choice_sold_out': 'Sorry, "{choice}" has just sold out. Please choose something else.',
 };

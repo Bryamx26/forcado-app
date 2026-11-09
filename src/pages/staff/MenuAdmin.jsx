@@ -4,9 +4,16 @@ import { useLiveEvents } from '../../live.js';
 import ItemEditor from './ItemEditor.jsx';
 import { Alert, ConfirmDialog, Modal, useToast } from '../../components/ui.jsx';
 import { TranslationsEditor, frenchText, toLocalized } from './translations.jsx';
+import OptionSetEditor from './OptionSetEditor.jsx';
+import ChoiceAvailability from './ChoiceAvailability.jsx';
+import { expandOptions } from '../../../shared/options.js';
 
 export default function MenuAdmin({ onAuthError }) {
   const [menu, setMenu] = useState(null);
+  const [optionSets, setOptionSets] = useState([]);
+  const [soldOut, setSoldOut] = useState(() => new Set());
+  const [editingSet, setEditingSet] = useState(null); // { optionSet? }
+  const [choicesOf, setChoicesOf] = useState(null); // article dont on règle les choix épuisés
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null); // { item?, categoryId? }
   const [newCategory, setNewCategory] = useState('');
@@ -14,7 +21,15 @@ export default function MenuAdmin({ onAuthError }) {
   const [renaming, setRenaming] = useState(null); // { cat, name }
   const toast = useToast();
 
-  const load = () => api.adminMenu().then(setMenu).catch(() => setError('Impossible de charger la carte.'));
+  const load = () =>
+    api
+      .adminMenu()
+      .then((data) => {
+        setMenu(data.categories);
+        setOptionSets(data.optionSets);
+        setSoldOut(new Set(data.soldOut));
+      })
+      .catch(() => setError('Impossible de charger la carte.'));
   useEffect(() => {
     load();
   }, []);
@@ -38,6 +53,26 @@ export default function MenuAdmin({ onAuthError }) {
     setMenu((m) => m.map((c) => ({ ...c, items: c.items.map((i) => (i.id === item.id ? { ...i, soldOut: !available } : i)) })));
     run(() => api.setAvailable(item.id, available));
   };
+
+  const toggleChoice = (key, available) => {
+    setSoldOut((current) => {
+      const next = new Set(current);
+      if (available) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    run(() => api.setChoiceAvailable(key, available));
+  };
+
+  const usersOf = (setId) => (menu || []).flatMap((c) => c.items).filter((i) => i.optionSetIds?.includes(setId)).map((i) => frenchText(i.name));
+
+  const removeOptionSet = (optionSet) =>
+    setConfirming({
+      title: `Supprimer le groupe « ${frenchText(optionSet.name)} » ?`,
+      text: 'Il est retiré de tous les articles qui l\'utilisent. Les commandes déjà passées ne changent pas.',
+      label: 'Supprimer le groupe',
+      action: () => run(() => api.deleteOptionSet(optionSet.id), 'Groupe supprimé'),
+    });
 
   const removeItem = (item) =>
     setConfirming({
@@ -118,6 +153,9 @@ export default function MenuAdmin({ onAuthError }) {
               <div className="admin-tools">
                 <button type="button" className="icon-btn" aria-label={`Monter ${frenchText(item.name)}`} title="Monter" disabled={ii === 0} onClick={() => run(() => api.moveItem(item.id, 'up'))}>↑</button>
                 <button type="button" className="icon-btn" aria-label={`Descendre ${frenchText(item.name)}`} title="Descendre" disabled={ii === cat.items.length - 1} onClick={() => run(() => api.moveItem(item.id, 'down'))}>↓</button>
+                {expandOptions(item, optionSets).length > 0 && (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setChoicesOf(item)}>Choix</button>
+                )}
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditing({ item, categoryId: cat.id })}>Modifier</button>
                 <button type="button" className="icon-btn danger" title="Supprimer" aria-label={`Supprimer ${frenchText(item.name)}`} onClick={() => removeItem(item)}>🗑</button>
               </div>
@@ -143,11 +181,55 @@ export default function MenuAdmin({ onAuthError }) {
         </form>
       )}
 
+      {menu && (
+        <section className="option-sets" aria-labelledby="option-sets-title">
+          <h3 id="option-sets-title">Options partagées</h3>
+          <p className="muted small">
+            Un groupe d'options commun à plusieurs articles (ex. « Lait » pour tous les cafés). Le modifier ici change
+            tous les articles qui l'utilisent.
+          </p>
+          {optionSets.map((optionSet) => (
+            <div key={optionSet.id} className="admin-row">
+              <span className="admin-name">
+                {frenchText(optionSet.name)}
+                <span className="muted small"> · {optionSet.choices.length} choix · {usersOf(optionSet.id).length} article(s)</span>
+              </span>
+              <div className="admin-tools">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingSet({ optionSet })}>Modifier</button>
+                <button type="button" className="icon-btn danger" title="Supprimer" aria-label={`Supprimer ${frenchText(optionSet.name)}`} onClick={() => removeOptionSet(optionSet)}>🗑</button>
+              </div>
+            </div>
+          ))}
+          <button type="button" className="btn btn-ghost btn-sm admin-add" onClick={() => setEditingSet({})}>
+            + Nouveau groupe partagé
+          </button>
+        </section>
+      )}
+
+      {editingSet && (
+        <OptionSetEditor
+          optionSet={editingSet.optionSet}
+          usedBy={editingSet.optionSet ? usersOf(editingSet.optionSet.id) : []}
+          onAuthError={onAuthError}
+          onClose={() => setEditingSet(null)}
+          onSaved={(saved) => {
+            setEditingSet(null);
+            toast(`« ${frenchText(saved?.name)} » enregistré`);
+            load();
+          }}
+        />
+      )}
+
+      {choicesOf && (
+        <ChoiceAvailability item={choicesOf} optionSets={optionSets} soldOut={soldOut} onToggle={toggleChoice} onClose={() => setChoicesOf(null)} />
+      )}
+
       {editing && (
         <ItemEditor
           item={editing.item}
           categoryId={editing.categoryId}
           categories={menu}
+          optionSets={optionSets}
           onAuthError={onAuthError}
           onClose={() => setEditing(null)}
           onSaved={(saved) => {

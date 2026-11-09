@@ -53,7 +53,7 @@ export const defaultMenu = [
         allergens: ['gluten', 'oeufs', 'lait'],
         mayContain: ['fruits_coque'],
         options: [
-          { id: 'extras', name: { fr: 'Avec', nl: 'Met', en: 'With', pt: 'Com' }, type: 'multi', choices: [
+          { id: 'extras', name: { fr: 'Avec', nl: 'Met', en: 'With', pt: 'Com' }, min: 0, max: 2, choices: [
             { id: 'beurre', name: { fr: 'Beurre', nl: 'Boter', en: 'Butter', pt: 'Manteiga' }, price: 0.5 },
             { id: 'jambon', name: { fr: 'Jambon', nl: 'Ham', en: 'Ham', pt: 'Fiambre' }, price: 1.2 },
             { id: 'fromage', name: { fr: 'Fromage', nl: 'Kaas', en: 'Cheese', pt: 'Queijo' }, price: 1.2 },

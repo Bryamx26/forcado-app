@@ -629,3 +629,14 @@ body.modal-open .toasts { display: none; }
 .translations summary { cursor: pointer; font-weight: 600; }
 .translation-row { display: grid; grid-template-columns: minmax(120px, 1fr) repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-2); align-items: center; margin-top: var(--space-2); }
 .translation-label { font-size: var(--text-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Limites d'un groupe d'options (espace employés). */
+.limits-editor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: var(--space-2) 0; }
+.limits-check { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-small); white-space: nowrap; }
+.limits-number { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-small); }
+.limits-number input { width: 64px; }
+.shared-sets { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: var(--space-2) 0 var(--space-3); }
+.opt-out { opacity: 0.55; cursor: not-allowed; }
+.opt-soldout { font-size: var(--text-small); color: var(--danger); font-weight: 600; }
+.switch-row { display: flex; margin-bottom: var(--space-2); }
+.option-sets { margin-top: var(--space-6); }

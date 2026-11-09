@@ -76,4 +76,12 @@ export default {
   'error.empty_cart': 'Le panier est vide',
   'error.invalid_table': 'Numéro de table invalide',
   'error.rate_limited': 'Trop de commandes envoyées. Demandez au comptoir.',
+  'options.one': 'Un choix',
+  'options.optionalOne': 'Un choix, facultatif',
+  'options.upTo': "Jusqu'à {max}, facultatif",
+  'options.exactly': '{count} choix',
+  'options.between': 'Entre {min} et {max}',
+  'options.max': 'Maximum atteint pour « {group} »',
+  'error.too_many_choices': 'Trop de choix pour un article.',
+  'error.choice_sold_out': "Désolé, « {choice} » vient d'être épuisé. Choisissez autre chose.",
 };

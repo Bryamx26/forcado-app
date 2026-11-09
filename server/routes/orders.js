@@ -1,6 +1,7 @@
 // Commandes : création par le client, suivi, et gestion par le comptoir.
 import { Router } from 'express';
 import { getMenu } from '../catalog.js';
+import { customerMenu } from '../availability.js';
 import { store } from '../store.js';
 import { notify } from '../events.js';
 import { requireStaff } from '../auth.js';
@@ -28,18 +29,6 @@ function parseTable(raw) {
   const table = parseInt(raw, 10);
   if (!table || table < 1 || table > MAX_TABLES) throw new OrderError('Numéro de table invalide', { code: 'invalid_table' });
   return table;
-}
-
-async function assertAvailable(lines) {
-  const soldOut = new Set(await store.soldOut());
-  const unavailable = lines.find((line) => soldOut.has(line.itemId));
-  if (unavailable) {
-    throw new OrderError(`Désolé, « ${unavailable.name} » vient d'être épuisé. Retirez-le du panier.`, {
-      status: 409,
-      code: 'item_sold_out',
-      vars: { itemId: unavailable.itemId },
-    });
-  }
 }
 
 // Ce que le client voit de sa commande : le statut et le détail, rien de plus.
@@ -76,8 +65,7 @@ orderRoutes.post(
   '/',
   handle(async (req, res) => {
     const table = parseTable(req.body?.table);
-    const lines = buildLines(req.body?.lines, await getMenu());
-    await assertAvailable(lines);
+    const lines = buildLines(req.body?.lines, await customerMenu(DEFAULT_LANGUAGE));
     const lang = isSupported(req.body?.lang) ? req.body.lang : DEFAULT_LANGUAGE;
     const order = await store.create(newOrder({ table, lines, lang }));
     await notify('orders');
