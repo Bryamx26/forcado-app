@@ -66,3 +66,20 @@ export const brand = {
 export const siteUrl = (
   env.SITE_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
 ).replace(/\/$/, '');
+
+const positiveInt = (name, fallback) => {
+  const n = parseInt(env[name], 10);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+};
+
+// Cuisine : seuils d'alerte d'un ticket (minutes), nombre de commandes préparées en même temps, et temps de
+// préparation supposé tant qu'aucune commande n'a encore été marquée prête.
+export const kitchen = {
+  warnAfterMin: positiveInt('KITCHEN_WARN_MIN', 7),
+  lateAfterMin: positiveInt('KITCHEN_LATE_MIN', 12),
+  capacity: positiveInt('KITCHEN_CAPACITY', 3),
+  defaultPrepMin: positiveInt('KITCHEN_DEFAULT_PREP_MIN', 5),
+};
+
+// Ce que /api/config renvoie au navigateur.
+export const publicConfig = { ...brand, kitchen };

@@ -12,6 +12,7 @@ export const defaultBrand = {
   currency: 'EUR',
   locale: 'fr-BE',
   languages: ['fr'],
+  kitchen: { warnAfterMin: 7, lateAfterMin: 12, capacity: 3, defaultPrepMin: 5 },
   paymentNote: 'Paiement à la table ou au comptoir.',
   website: '',
   description: '',

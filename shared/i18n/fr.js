@@ -84,4 +84,8 @@ export default {
   'options.max': 'Maximum atteint pour « {group} »',
   'error.too_many_choices': 'Trop de choix pour un article.',
   'error.choice_sold_out': "Désolé, « {choice} » vient d'être épuisé. Choisissez autre chose.",
+  'board.preparing': 'En préparation',
+  'board.ready': 'Prêtes',
+  'board.empty': '—',
+  'tracker.wait': 'Prête dans environ {minutes} min',
 };

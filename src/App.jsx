@@ -4,6 +4,7 @@ import { BrandContext, defaultBrand } from './brand.js';
 import Customer from './pages/Customer.jsx';
 import Staff from './pages/Staff.jsx';
 import Home from './pages/Home.jsx';
+import ReadyBoard from './pages/ReadyBoard.jsx';
 import About from './pages/site/About.jsx';
 import Offer from './pages/site/Offer.jsx';
 import { LegalNotice, Privacy } from './pages/site/Legal.jsx';
@@ -90,6 +91,9 @@ export default function App() {
         <Customer table={parseInt(table[1], 10)} />
       </LanguageProvider>
     );
+  } else if (path === '/ecran') {
+    document.title = `${brand.name} · Commandes prêtes`;
+    page = <ReadyBoard />;
   } else if (path.startsWith('/comptoir')) {
     document.title = `${brand.name} · Espace employés`;
     page = <Staff />;

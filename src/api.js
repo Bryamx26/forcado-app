@@ -29,6 +29,7 @@ export const api = {
   adminMenu: () => request('/api/admin/menu'),
   track: (ids) => request(`/api/orders/track?ids=${ids.join(',')}`),
   orders: () => request('/api/orders'),
+  board: () => request('/api/orders/board'),
   createOrder: (order) => request('/api/orders', { method: 'POST', body: order }),
   setStatus: (id, status, from) => request(`/api/orders/${id}`, { method: 'PATCH', body: { status, from } }),
   editOrder: (id, lines, basedOn) => request(`/api/orders/${id}/lines`, { method: 'PUT', body: { lines, basedOn } }),

@@ -1,5 +1,5 @@
 import express from 'express';
-import { brand } from './config.js';
+import { publicConfig } from './config.js';
 import { mountAuth, staffFrom } from './auth.js';
 import { mountEvents } from './events.js';
 import { securityHeaders, sameOrigin, rateLimit, clientIp } from './security.js';
@@ -25,13 +25,14 @@ app.post(
   rateLimit('orders-table', 15, 10 * 60, tooManyOrders, (req) => `${clientIp(req)}:${parseInt(req.body?.table, 10) || 0}`),
 );
 app.get('/api/orders/track', rateLimit('track', 1200, 60));
+app.get('/api/orders/board', rateLimit('board', 600, 60));
 // Le flux des employés connectés n'est pas limité : le comptoir est souvent sur le même wifi que les clients.
 const eventsLimit = rateLimit('events', 300, 60);
 app.get('/api/events', (req, res, next) => (staffFrom(req) ? next() : eventsLimit(req, res, next)));
 mountAuth(app);
 mountEvents(app);
 
-app.get('/api/config', (_req, res) => res.json(brand));
+app.get('/api/config', (_req, res) => res.json(publicConfig));
 app.use('/api', menuRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);

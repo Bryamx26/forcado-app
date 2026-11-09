@@ -84,4 +84,8 @@ export default {
   'options.max': 'Maximum bereikt voor "{group}"',
   'error.too_many_choices': 'Te veel keuzes bij een product.',
   'error.choice_sold_out': 'Sorry, "{choice}" is net uitverkocht. Kies iets anders.',
+  'board.preparing': 'In bereiding',
+  'board.ready': 'Klaar',
+  'board.empty': '—',
+  'tracker.wait': 'Klaar over ongeveer {minutes} min',
 };

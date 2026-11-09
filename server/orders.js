@@ -118,7 +118,14 @@ export function newOrder({ table, lines, lang, now = new Date() }) {
     lines,
     total: orderTotal(lines),
     status: ORDER_STATUS.NEW,
+    statusHistory: [{ status: ORDER_STATUS.NEW, at }],
     createdAt: at,
     updatedAt: at,
   };
+}
+
+// Changement de statut, gardé dans l'historique pour le temps de préparation et les statistiques.
+export function statusChange(order, status, now = new Date()) {
+  const at = now.toISOString();
+  return { status, updatedAt: at, statusHistory: [...(order.statusHistory || []), { status, at }] };
 }

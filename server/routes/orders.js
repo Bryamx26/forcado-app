@@ -2,13 +2,15 @@
 import { Router } from 'express';
 import { getMenu } from '../catalog.js';
 import { customerMenu } from '../availability.js';
+import { boardNumbers, waitTimes } from '../queue.js';
+import { orderStatusChanged } from '../orderEvents.js';
 import { store } from '../store.js';
 import { notify } from '../events.js';
 import { requireStaff } from '../auth.js';
 import { handle, noStore } from '../http.js';
 import { ORDER_STATUSES } from '../../shared/orderStatus.js';
 import { DEFAULT_LANGUAGE, isSupported } from '../../shared/i18n/index.js';
-import { OrderError, buildLines, editLines, newOrder, orderTotal, assertEditable, assertTransition } from '../orders.js';
+import { OrderError, buildLines, editLines, newOrder, orderTotal, assertEditable, assertTransition, statusChange } from '../orders.js';
 
 // Nombre de tables de l'établissement : au-delà, la commande est refusée.
 const MAX_TABLES = Math.min(999, parseInt(process.env.MAX_TABLES, 10) || 999);
@@ -32,13 +34,14 @@ function parseTable(raw) {
 }
 
 // Ce que le client voit de sa commande : le statut et le détail, rien de plus.
-const publicView = ({ id, number, table, status, total, lines, modifiedAt }) => ({
+const publicView = ({ id, number, table, status, total, lines, modifiedAt }, waitMinutes) => ({
   id,
   number,
   table,
   status,
   total,
   modifiedAt,
+  waitMinutes,
   lines: lines.map((l) => ({ qty: l.qty, name: l.name, options: l.options.map((o) => o.choice) })),
 });
 
@@ -47,8 +50,14 @@ orderRoutes.get(
   handle(async (req, res) => {
     const ids = String(req.query.ids || '').split(',').filter((id) => ORDER_ID.test(id)).slice(0, MAX_TRACKED);
     const orders = await store.get(ids);
-    noStore(res).json(orders.map(publicView));
+    const waits = await waitTimes(orders);
+    noStore(res).json(orders.map((o) => publicView(o, waits[o.id] ?? null)));
   }),
+);
+
+orderRoutes.get(
+  '/board',
+  handle(async (_req, res) => noStore(res).json(await boardNumbers())),
 );
 
 orderRoutes.get(
@@ -79,9 +88,10 @@ orderRoutes.patch(
   handle(async (req, res) => {
     const { status, from } = req.body || {};
     if (!ORDER_STATUSES.includes(status)) throw new OrderError('Statut invalide');
-    assertTransition(await findOrder(req.params.id), status, from);
-    const order = await store.update(req.params.id, { status, updatedAt: new Date().toISOString() });
-    await notify('orders');
+    const current = await findOrder(req.params.id);
+    assertTransition(current, status, from);
+    const order = await store.update(current.id, statusChange(current, status));
+    await orderStatusChanged(order, current.status);
     res.json(order);
   }),
 );

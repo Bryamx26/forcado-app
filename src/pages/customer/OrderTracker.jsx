@@ -143,6 +143,7 @@ export default function OrderTracker({ place, live }) {
             </div>
             {o.modifiedAt && acks[o.id] !== o.modifiedAt && <ModifiedNotice order={o} onAck={() => setAcks(saveAck(acks, o))} />}
             <Progress status={o.status} />
+            {o.waitMinutes != null && <p className="small tracker-wait">{t('tracker.wait', { minutes: o.waitMinutes })}</p>}
             {o.status === ORDER_STATUS.READY && <p className="small tracker-ready">{t('tracker.readyTable')}</p>}
           </div>
         ),

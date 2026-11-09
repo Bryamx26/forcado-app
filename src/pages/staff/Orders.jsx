@@ -1,83 +1,39 @@
-import { useEffect, useRef, useState } from 'react';
-import { api, AuthError, euro } from '../../api.js';
-import { useLiveEvents } from '../../live.js';
+import { useState } from 'react';
+import { euro } from '../../api.js';
 import { Alert, ConfirmDialog, StatusBadge } from '../../components/ui.jsx';
+import { useNow } from '../../useNow.js';
+import { ORDER_STATUS, isFinal } from '../../../shared/orderStatus.js';
 import OrderEditor from './OrderEditor.jsx';
+import OrderTicket from './OrderTicket.jsx';
+import { useStaffOrders } from './useStaffOrders.js';
 
 const COLUMNS = [
-  { status: 'nouvelle', title: 'Reçues', next: { status: 'en_cours', label: 'Démarrer' } },
-  { status: 'en_cours', title: 'En préparation', next: { status: 'prete', label: 'Prête ✓' } },
-  { status: 'prete', title: 'Prêtes', next: { status: 'servie', label: 'Servie' } },
+  { status: ORDER_STATUS.NEW, title: 'Reçues', next: { status: ORDER_STATUS.PREPARING, label: 'Démarrer' } },
+  { status: ORDER_STATUS.PREPARING, title: 'En préparation', next: { status: ORDER_STATUS.READY, label: 'Prête ✓' } },
+  { status: ORDER_STATUS.READY, title: 'Prêtes', next: { status: ORDER_STATUS.SERVED, label: 'Servie' } },
 ];
-
-function minutesSince(iso, now) {
-  return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
-}
+const HISTORY_SIZE = 50;
 
 const isToday = (iso) => new Date(iso).toDateString() === new Date().toDateString();
 
-function beep() {
-  try {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    osc.connect(gain).connect(ctx.destination);
-    // Un contexte audio non fermé reste ouvert : au fil du service, le navigateur finit par les refuser.
-    osc.onended = () => ctx.close();
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
-  } catch {}
-}
-
-// Ticket du comptoir (OrderTicket) : le numéro se lit en premier, une seule action principale.
 function OrderCard({ order, column, now, onStatus, onEdit }) {
-  const mins = minutesSince(order.createdAt, now);
-  const late = mins >= 10 && order.status !== 'prete';
   return (
     <li>
-      <article className={`ticket ${late ? 'ticket-late' : ''}`} aria-label={`Commande ${order.number}, table ${order.table}`}>
-        <header className="ticket-head">
-          <span className="ticket-number">#{order.number}</span>
-          <span className="ticket-meta">
-            Table {order.table} · {late ? `Depuis ${mins} min` : mins === 0 ? "à l'instant" : `${mins} min`}
-          </span>
-        </header>
-        <StatusBadge status={order.status} comptoir />
-        <ul className="ticket-lines">
-          {order.lines.map((l, i) => (
-            <li key={i}>
-              <strong>{l.qty} ×</strong> {l.name}
-              {l.options.length > 0 && <div className="ticket-opts">{l.options.map((o) => o.choice).join(' · ')}</div>}
-              {l.note && (
-                <div className="ticket-note">
-                  <span aria-hidden="true">⚑</span> {l.note}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-        {order.modifiedAt && <div className="ticket-by">Modifiée par l'équipe</div>}
+      <OrderTicket order={order} now={now}>
         <button type="button" className="link small ticket-edit" onClick={() => onEdit(order)}>
           Modifier la commande
         </button>
-        <div className="ticket-total">
-          <span className="muted">Total</span>
-          <span className="price">{euro(order.total)}</span>
-        </div>
         <footer className="ticket-actions">
-          {order.status === 'nouvelle' && (
-            <button type="button" className="btn btn-ghost" onClick={() => onStatus(order, 'annulee')}>Annuler</button>
+          {order.status === ORDER_STATUS.NEW && (
+            <button type="button" className="btn btn-ghost" onClick={() => onStatus(order, ORDER_STATUS.CANCELLED)}>Annuler</button>
           )}
-          {order.status === 'en_cours' && (
+          {order.status === ORDER_STATUS.PREPARING && (
             <button
               type="button"
               className="btn btn-ghost"
               aria-label="Remettre en attente"
               title="Remettre en attente"
-              onClick={() => onStatus(order, 'nouvelle')}
+              onClick={() => onStatus(order, ORDER_STATUS.NEW)}
             >
               ↩
             </button>
@@ -86,89 +42,54 @@ function OrderCard({ order, column, now, onStatus, onEdit }) {
             {column.next.label}
           </button>
         </footer>
-      </article>
+      </OrderTicket>
     </li>
   );
 }
 
+// Chiffres du jour en tête du comptoir.
+function todaySummary(orders) {
+  const today = orders.filter((o) => isToday(o.createdAt) && o.status !== ORDER_STATUS.CANCELLED);
+  const served = today.filter((o) => o.status === ORDER_STATUS.SERVED);
+  const avgMinutes = served.length
+    ? Math.round(served.reduce((s, o) => s + (new Date(o.updatedAt) - new Date(o.createdAt)), 0) / served.length / 60000)
+    : null;
+  return {
+    count: today.length,
+    revenue: today.reduce((s, o) => s + o.total, 0),
+    waiting: orders.filter((o) => o.status === ORDER_STATUS.NEW).length,
+    avgMinutes,
+  };
+}
+
 export default function Orders({ onAuthError }) {
-  const [orders, setOrders] = useState([]);
-  const [error, setError] = useState('');
-  const [now, setNow] = useState(Date.now());
+  const { orders, error, refresh, setStatus } = useStaffOrders(onAuthError);
+  const now = useNow();
   const [showHistory, setShowHistory] = useState(false);
   const [cancelling, setCancelling] = useState(null);
   const [editing, setEditing] = useState(null);
-  const known = useRef(null);
 
-  const refresh = async () => {
-    try {
-      const data = await api.orders();
-      const ids = new Set(data.map((o) => o.id));
-      if (known.current && data.some((o) => !known.current.has(o.id) && o.status === 'nouvelle')) beep();
-      known.current = ids;
-      setOrders(data);
-      setError('');
-    } catch (e) {
-      if (e instanceof AuthError) return onAuthError();
-      setError('Connexion au serveur perdue, nouvelle tentative…');
-    }
-  };
-
-  useLiveEvents('/api/events?scope=staff', { orders: refresh });
-
-  useEffect(() => {
-    refresh();
-    // Secours si le flux temps réel est coupé.
-    const poll = setInterval(refresh, 15000);
-    const clock = setInterval(() => setNow(Date.now()), 30000);
-    return () => {
-      clearInterval(poll);
-      clearInterval(clock);
-    };
-  }, []);
-
-  const onStatus = async (order, status, confirmed = false) => {
-    if (status === 'annulee' && !confirmed) return setCancelling(order);
-    setOrders((os) => os.map((o) => (o.id === order.id ? { ...o, status } : o)));
-    try {
-      await api.setStatus(order.id, status, order.status);
-    } catch (e) {
-      if (e instanceof AuthError) return onAuthError();
-      // Rafraîchir d'abord : refresh efface le message d'erreur.
-      await refresh();
-      return setError(e.message);
-    }
-    refresh();
-  };
-
-  const today = orders.filter((o) => isToday(o.createdAt) && o.status !== 'annulee');
-  const revenue = today.reduce((s, o) => s + o.total, 0);
-  const waiting = orders.filter((o) => o.status === 'nouvelle').length;
-  const served = today.filter((o) => o.status === 'servie');
-  const avgMinutes = served.length
-    ? Math.round(
-        served.reduce((s, o) => s + (new Date(o.updatedAt) - new Date(o.createdAt)), 0) / served.length / 60000,
-      )
-    : null;
-  const history = orders.filter((o) => o.status === 'servie' || o.status === 'annulee').reverse().slice(0, 50);
+  const onStatus = (order, status) => (status === ORDER_STATUS.CANCELLED ? setCancelling(order) : setStatus(order, status));
+  const summary = todaySummary(orders);
+  const history = orders.filter((o) => isFinal(o.status)).reverse().slice(0, HISTORY_SIZE);
 
   return (
     <>
       <div className="stats">
         <div className="stat">
-          <span className="stat-value">{today.length}</span>
+          <span className="stat-value">{summary.count}</span>
           <span className="stat-label">Commandes aujourd'hui</span>
         </div>
         <div className="stat">
-          <span className="stat-value">{euro(revenue)}</span>
+          <span className="stat-value">{euro(summary.revenue)}</span>
           <span className="stat-label">Chiffre du jour</span>
         </div>
-        <div className={`stat ${waiting ? 'stat-alert' : ''}`}>
-          <span className="stat-value">{waiting}</span>
+        <div className={`stat ${summary.waiting ? 'stat-alert' : ''}`}>
+          <span className="stat-value">{summary.waiting}</span>
           <span className="stat-label">En attente</span>
         </div>
         <div className="stat">
-          <span className="stat-value">{avgMinutes === null ? '–' : `${avgMinutes} min`}</span>
+          <span className="stat-value">{summary.avgMinutes === null ? '–' : `${summary.avgMinutes} min`}</span>
           <span className="stat-label">Temps moyen de service</span>
         </div>
       </div>
@@ -233,7 +154,7 @@ export default function Orders({ onAuthError }) {
           onConfirm={() => {
             const order = cancelling;
             setCancelling(null);
-            onStatus(order, 'annulee', true);
+            setStatus(order, ORDER_STATUS.CANCELLED);
           }}
         >
           <p>Table {cancelling.table}. Elle disparaîtra du comptoir et le client sera prévenu sur son téléphone.</p>

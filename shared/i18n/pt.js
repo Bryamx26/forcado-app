@@ -84,4 +84,8 @@ export default {
   'options.max': 'Máximo atingido em «{group}»',
   'error.too_many_choices': 'Demasiadas escolhas num artigo.',
   'error.choice_sold_out': 'Lamentamos, «{choice}» acabou de esgotar. Escolha outra opção.',
+  'board.preparing': 'Em preparação',
+  'board.ready': 'Prontos',
+  'board.empty': '—',
+  'tracker.wait': 'Pronto em cerca de {minutes} min',
 };

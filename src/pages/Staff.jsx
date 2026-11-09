@@ -2,15 +2,28 @@ import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import Login from './staff/Login.jsx';
 import Orders from './staff/Orders.jsx';
+import Kitchen from './staff/Kitchen.jsx';
 import MenuAdmin from './staff/MenuAdmin.jsx';
 import QrCodes from './staff/QrCodes.jsx';
 import { Logo } from '../components/ui.jsx';
 
 const TABS = [
   { path: '/comptoir', label: 'Commandes' },
+  { path: '/comptoir/cuisine', label: 'Cuisine' },
   { path: '/comptoir/carte', label: 'Carte' },
   { path: '/comptoir/qr', label: 'QR codes' },
 ];
+
+const PAGES = {
+  '/comptoir/cuisine': Kitchen,
+  '/comptoir/carte': MenuAdmin,
+  '/comptoir/qr': QrCodes,
+};
+
+function StaffPage({ path, onAuthError }) {
+  const Page = PAGES[path] || Orders;
+  return <Page onAuthError={onAuthError} />;
+}
 
 export default function Staff() {
   const [me, setMe] = useState(undefined);
@@ -60,13 +73,7 @@ export default function Staff() {
           <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Déconnexion</button>
         </div>
       </header>
-      {path === '/comptoir/carte' ? (
-        <MenuAdmin onAuthError={lost} />
-      ) : path === '/comptoir/qr' ? (
-        <QrCodes />
-      ) : (
-        <Orders onAuthError={lost} />
-      )}
+      <StaffPage path={path} onAuthError={lost} />
     </div>
   );
 }
