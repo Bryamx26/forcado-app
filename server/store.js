@@ -4,13 +4,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Redis } from '@upstash/redis';
+import { hasRedis, redisClient } from './redis.js';
 
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
 function redisStore() {
-  const redis = new Redis({ url: redisUrl, token: redisToken });
+  const redis = redisClient();
   const KEY = 'forcado:orders';
   const SOLD_OUT = 'forcado:sold-out';
   const parse = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
@@ -93,5 +91,5 @@ function fileStore() {
   };
 }
 
-export const store = redisUrl && redisToken ? redisStore() : fileStore();
-export const storeKind = redisUrl && redisToken ? 'redis' : 'fichier';
+export const store = hasRedis ? redisStore() : fileStore();
+export const storeKind = hasRedis ? 'redis' : 'fichier';

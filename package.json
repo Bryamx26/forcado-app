@@ -6,7 +6,8 @@
     "dev": "concurrently -n api,web \"node --watch server/index.js --dev\" \"vite\"",
     "build": "vite build && node scripts/seo.js",
     "start": "node server/index.js",
-    "qr": "node scripts/qr.js"
+    "qr": "node scripts/qr.js",
+    "test": "node --test \"test/*.test.js\""
   },
   "keywords": [],
   "author": "",

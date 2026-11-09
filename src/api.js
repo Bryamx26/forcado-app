@@ -42,11 +42,3 @@ export function setMoneyFormat(locale, currency) {
   money = new Intl.NumberFormat(locale, { style: 'currency', currency });
 }
 export const euro = (n) => money.format(n);
-
-export const STATUS_LABELS = {
-  nouvelle: 'Reçue',
-  en_cours: 'En préparation',
-  prete: 'Prête',
-  servie: 'Servie',
-  annulee: 'Annulée',
-};

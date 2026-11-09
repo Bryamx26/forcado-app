@@ -1,6 +1,6 @@
 // Composants partagés du design system (DESIGN.md, section 7, et design/components/).
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
-import { STATUS_LABELS } from '../api.js';
+import { STATUS_LABELS } from '../../shared/orderStatus.js';
 import { useBrand } from '../brand.js';
 
 // Nom de l'établissement, ou son logo si BRAND_LOGO est défini.

@@ -1,16 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api, AuthError, euro } from '../../api.js';
 import { Alert, Modal } from '../../components/ui.jsx';
-
-// Choix par défaut d'un article : le premier choix de chaque groupe obligatoire.
-const defaultOptions = (item) =>
-  Object.fromEntries(item.options.filter((g) => g.required).map((g) => [g.id, [g.choices[0].id]]));
-
-function unitPrice(item, options) {
-  let price = item.price;
-  for (const g of item.options) for (const id of options[g.id] || []) price += g.choices.find((c) => c.id === id)?.price || 0;
-  return price;
-}
+import { clampQty } from '../../../shared/orderStatus.js';
+import { defaultSelection, isSingleChoice, selectedChoiceNames, toggleChoice, unitPrice } from '../../../shared/options.js';
 
 // Ajout d'un article de la carte, avec ses options.
 function AddLine({ menu, onAdd }) {
@@ -22,14 +14,9 @@ function AddLine({ menu, onAdd }) {
   const pick = (id) => {
     setItemId(id);
     const next = items.find((i) => i.id === id);
-    setOptions(next ? defaultOptions(next) : {});
+    setOptions(next ? defaultSelection(next) : {});
   };
-  const toggle = (g, id) =>
-    setOptions((o) => {
-      if (g.type === 'single') return { ...o, [g.id]: [id] };
-      const cur = o[g.id] || [];
-      return { ...o, [g.id]: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] };
-    });
+  const toggle = (group, id) => setOptions((o) => toggleChoice(o, group, id));
 
   return (
     <div className="order-add">
@@ -55,7 +42,7 @@ function AddLine({ menu, onAdd }) {
           {g.choices.map((c) => (
             <label key={c.id} className="order-add-choice">
               <input
-                type={g.type === 'single' ? 'radio' : 'checkbox'}
+                type={isSingleChoice(g) ? 'radio' : 'checkbox'}
                 name={`add-${g.id}`}
                 checked={(options[g.id] || []).includes(c.id)}
                 onChange={() => toggle(g, c.id)}
@@ -95,7 +82,7 @@ export default function OrderEditor({ order, onClose, onSaved, onAuthError }) {
     api.menu().then(setMenu).catch(() => setError('Impossible de charger la carte.'));
   }, []);
 
-  const setQty = (key, qty) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, qty: Math.max(1, Math.min(20, qty)) } : l)));
+  const setQty = (key, qty) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, qty: clampQty(qty) } : l)));
   const remove = (key) => setLines((ls) => ls.filter((l) => l.key !== key));
   const add = ({ item, options, unitPrice: price }) =>
     setLines((ls) => [
@@ -106,7 +93,7 @@ export default function OrderEditor({ order, onClose, onSaved, onAuthError }) {
         options,
         qty: 1,
         name: item.name,
-        opts: item.options.flatMap((g) => (options[g.id] || []).map((id) => g.choices.find((c) => c.id === id)?.name)).filter(Boolean),
+        opts: selectedChoiceNames(item, options),
         unitPrice: price,
       },
     ]);

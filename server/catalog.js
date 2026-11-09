@@ -4,18 +4,17 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Redis } from '@upstash/redis';
+import { hasRedis, redisClient } from './redis.js';
 import { defaultMenu } from './menu.js';
+import { roundMoney } from '../shared/money.js';
 
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
 const MENU_KEY = 'forcado:menu';
 const IMAGE_PREFIX = 'forcado:image:';
 const MAX_IMAGE_BYTES = 600 * 1024;
 
 function redisBackend() {
-  const redis = new Redis({ url: redisUrl, token: redisToken, automaticDeserialization: false });
+  const redis = redisClient({ rawValues: true });
   return {
     async readMenu() {
       const raw = await redis.get(MENU_KEY);
@@ -69,7 +68,7 @@ function fileBackend() {
   };
 }
 
-const backend = redisUrl && redisToken ? redisBackend() : fileBackend();
+const backend = hasRedis ? redisBackend() : fileBackend();
 
 export class CatalogError extends Error {
   constructor(message, status = 400) {
@@ -79,7 +78,6 @@ export class CatalogError extends Error {
 }
 
 const newId = (prefix) => `${prefix}-${crypto.randomBytes(4).toString('hex')}`;
-const round = (n) => Math.round(n * 100) / 100;
 
 export async function getMenu() {
   const menu = await backend.readMenu();
@@ -109,7 +107,7 @@ function text(value, label, max, { required = false } = {}) {
 function price(value, label, min, max) {
   const n = Number(String(value ?? '').replace(',', '.'));
   if (!Number.isFinite(n) || n < min || n > max) throw new CatalogError(`${label} invalide`);
-  return round(n);
+  return roundMoney(n);
 }
 
 function cleanOptions(raw) {
