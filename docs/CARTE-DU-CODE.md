@@ -30,7 +30,11 @@ graph LR
     auth --> security
     app --> catalog[server/catalog.js<br/>carte, photos]
     catalog --> menu[server/menu.js<br/>carte de départ]
-    app --> store[server/store.js<br/>Redis ou fichier]
+    app --> store[server/store.js<br/>Postgres, Redis ou fichier]
+    store --> backend[server/backend.js<br/>choix du stockage]
+    catalog --> backend
+    store --> db[server/db/<br/>schéma + connexion Postgres]
+    catalog --> db
     app --> config[server/config.js<br/>marque, légal, éditeur]
   end
 
@@ -46,5 +50,6 @@ graph LR
 | Changer l'apparence (couleurs, polices, composants) | `DESIGN.md`, tokens dans `src/theme.css`, styles dans `src/styles.css`, composants partagés dans `src/components/ui.jsx` |
 | Changer la carte | Espace employés, onglet Carte (logique : `server/catalog.js`, carte de départ : `server/menu.js`) |
 | Ajouter une route d'API | `server/app.js` |
+| Changer le stockage, les tables Postgres | `server/backend.js`, `server/db/schema.sql`, puis `npm run db:migrate` |
 | Ajouter une page publique | `src/pages/site/`, `SITE_PAGES` dans `src/App.jsx`, `src/seo.js`, rewrites de `vercel.json` |
 | En-têtes de sécurité, limites anti-abus | `server/security.js` (et `vercel.json` pour les pages statiques) |

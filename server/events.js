@@ -4,6 +4,7 @@
 // En local, un simple émetteur d'événements suffit.
 import { EventEmitter } from 'node:events';
 import { Redis } from '@upstash/redis';
+import { redisConfig } from './backend.js';
 import { staffFrom } from './auth.js';
 
 const CHANNEL = 'forcado:events';
@@ -11,9 +12,7 @@ const CHANNEL = 'forcado:events';
 const STREAM_MS = 50 * 1000;
 const HEARTBEAT_MS = 20 * 1000;
 
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
+const redis = redisConfig ? new Redis(redisConfig) : null;
 const local = new EventEmitter();
 local.setMaxListeners(0);
 

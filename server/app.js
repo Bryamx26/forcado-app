@@ -170,8 +170,7 @@ app.get('/api/orders/track', async (req, res, next) => {
 
 app.get('/api/orders', requireStaff, async (_req, res, next) => {
   try {
-    const since = Date.now() - RECENT_MS;
-    const orders = (await store.list()).filter((o) => new Date(o.createdAt).getTime() >= since);
+    const orders = await store.list({ since: Date.now() - RECENT_MS });
     res.set('Cache-Control', 'no-store').json(orders);
   } catch (e) {
     next(e);

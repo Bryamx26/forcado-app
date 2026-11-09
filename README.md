@@ -101,6 +101,21 @@ En local, les commandes sont enregistrées dans `data/orders.json` (créé autom
 
 Si les variables `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` (ou `KV_REST_API_URL` et `KV_REST_API_TOKEN`) existent, les commandes vont dans Redis à la place. C'est obligatoire sur Vercel, qui n'a pas de disque permanent.
 
+Le choix se fait dans `server/backend.js`, dans cet ordre : Postgres, puis Redis, puis fichiers.
+
+### Postgres (préparation du multi-commerce)
+
+Si `DATABASE_URL` (ou `POSTGRES_URL`) existe, les commandes, la carte, les ruptures et les photos vont dans Postgres. Redis reste utilisé pour le temps réel et les limites de requêtes. Chaque ligne porte l'identifiant du commerce (`COMMERCE_ID`, `forcado` par défaut) : une même base pourra servir plusieurs établissements. Le schéma est dans `server/db/schema.sql`.
+
+```bash
+DATABASE_URL=postgres://… npm run db:migrate   # crée les tables (rejouable)
+DATABASE_URL=postgres://… npm run db:import    # copie les données de Redis (ou de data/) dans Postgres
+```
+
+`db:import` lit Redis si ses variables sont définies, sinon `data/`. Il n'efface rien à la source et peut être relancé. Sur Vercel, utilisez l'adresse « poolée » de la base (Neon, Supabase…) : chaque fonction ne garde que 3 connexions.
+
+Avec Postgres, deux employés qui agissent en même temps ne s'écrasent plus : les numéros de commande sont réservés dans la même requête que l'insertion, une modification de commande est une seule requête, et une modification de la carte la verrouille le temps de l'écrire.
+
 ## Mettre en ligne sur Vercel
 
 1. Mettre ce dossier dans un dépôt GitHub.

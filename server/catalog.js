@@ -1,21 +1,70 @@
-// Carte modifiable : catégories, articles, options et photos, stockés dans Redis (ou en local dans data/).
-// La carte est un seul document JSON (elle reste petite) ; les photos sont stockées à part.
+// Carte modifiable : catégories, articles, options et photos, stockés dans Postgres, Redis ou en local dans data/
+// (voir backend.js). La carte est un seul document JSON (elle reste petite) ; les photos sont stockées à part.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Redis } from '@upstash/redis';
 import { defaultMenu } from './menu.js';
-
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+import { redisConfig, dataKind, commerceId } from './backend.js';
+import { pool, ensureCommerce, transaction } from './db/pool.js';
 
 const MENU_KEY = 'forcado:menu';
 const IMAGE_PREFIX = 'forcado:image:';
 const MAX_IMAGE_BYTES = 600 * 1024;
 
+// Postgres : une modification de la carte verrouille sa ligne le temps de la faire,
+// pour que deux employés qui modifient la carte en même temps ne s'écrasent pas.
+function pgBackend() {
+  const q = async (sql, params) => {
+    await ensureCommerce();
+    return (await pool.query(sql, params)).rows;
+  };
+  const write = (db, menu) =>
+    db.query(
+      `INSERT INTO menus (commerce_id, data) VALUES ($1, $2)
+       ON CONFLICT (commerce_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
+      [commerceId, JSON.stringify(menu)],
+    );
+  return {
+    async readMenu() {
+      const [row] = await q('SELECT data FROM menus WHERE commerce_id = $1', [commerceId]);
+      return row ? row.data : null;
+    },
+    async writeMenu(menu) {
+      await ensureCommerce();
+      await write(pool, menu);
+    },
+    async updateMenu(fn) {
+      await ensureCommerce();
+      return transaction(async (client) => {
+        // Crée la carte de départ si besoin, puis la verrouille jusqu'à la fin de la modification.
+        await client.query(
+          'INSERT INTO menus (commerce_id, data) VALUES ($1, $2) ON CONFLICT (commerce_id) DO NOTHING',
+          [commerceId, JSON.stringify(defaultMenu)],
+        );
+        const { rows } = await client.query('SELECT data FROM menus WHERE commerce_id = $1 FOR UPDATE', [commerceId]);
+        const menu = rows[0].data;
+        const result = await fn(menu);
+        await write(client, menu);
+        return result;
+      });
+    },
+    async readImage(id) {
+      const [row] = await q('SELECT data FROM images WHERE id = $1', [id]);
+      return row ? row.data.toString('base64') : null;
+    },
+    async writeImage(id, base64) {
+      await q('INSERT INTO images (id, commerce_id, data) VALUES ($1, $2, $3)', [id, commerceId, Buffer.from(base64, 'base64')]);
+    },
+    async deleteImage(id) {
+      await q('DELETE FROM images WHERE id = $1 AND commerce_id = $2', [id, commerceId]);
+    },
+  };
+}
+
 function redisBackend() {
-  const redis = new Redis({ url: redisUrl, token: redisToken, automaticDeserialization: false });
+  const redis = new Redis({ ...redisConfig, automaticDeserialization: false });
   return {
     async readMenu() {
       const raw = await redis.get(MENU_KEY);
@@ -69,7 +118,8 @@ function fileBackend() {
   };
 }
 
-const backend = redisUrl && redisToken ? redisBackend() : fileBackend();
+const backends = { postgres: pgBackend, redis: redisBackend, fichier: fileBackend };
+const backend = backends[dataKind]();
 
 export class CatalogError extends Error {
   constructor(message, status = 400) {
@@ -161,6 +211,7 @@ function cleanItem(raw) {
 // --- Modifications ---------------------------------------------------------
 
 async function mutate(fn) {
+  if (backend.updateMenu) return backend.updateMenu(fn);
   const menu = await getMenu();
   const result = await fn(menu);
   await backend.writeMenu(menu);
