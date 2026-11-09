@@ -50,6 +50,7 @@ export const api = {
   deleteOptionSet: (id) => request(`/api/admin/option-sets/${id}`, { method: 'DELETE' }),
   setChoiceAvailable: (key, available) => request('/api/menu/choices/availability', { method: 'PUT', body: { key, available } }),
   uploadImage: (dataUrl) => request('/api/admin/images', { method: 'POST', body: { dataUrl } }),
+  stats: (from, to) => request(`/api/stats?from=${from}&to=${to}`),
   me: () => request('/api/auth/me'),
   login: (password) => request('/api/auth/login', { method: 'POST', body: { password } }),
   logout: () => request('/api/auth/logout', { method: 'POST' }),

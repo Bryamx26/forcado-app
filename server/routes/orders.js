@@ -6,7 +6,8 @@ import { boardNumbers, waitTimes } from '../queue.js';
 import { orderStatusChanged } from '../orderEvents.js';
 import { cleanSubscription, pushEnabled } from '../push.js';
 import { availableSlots, promoteDueOrders, takeawayFields } from '../takeaway.js';
-import { ORDER_MODE } from '../../shared/pickup.js';
+import { ORDER_MODE, zonedParts } from '../../shared/pickup.js';
+import { timeZone } from '../config.js';
 import { store } from '../store.js';
 import { notify } from '../events.js';
 import { requireStaff } from '../auth.js';
@@ -20,6 +21,10 @@ const MAX_TABLES = Math.min(999, parseInt(process.env.MAX_TABLES, 10) || 999);
 // Les commandes de plus de 36 h restent stockées mais ne sont plus renvoyées au comptoir.
 const RECENT_MS = 36 * 60 * 60 * 1000;
 const MAX_TRACKED = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Jours (heure de l'établissement) couverts par les 36 dernières heures.
+const recentDays = (now = Date.now()) => [...new Set([0, 1, 2].map((n) => zonedParts(now - n * DAY_MS, timeZone).date))];
 const ORDER_ID = /^[0-9a-f-]{36}$/i;
 
 export const orderRoutes = Router();
@@ -99,7 +104,7 @@ orderRoutes.get(
   handle(async (_req, res) => {
     await promoteDueOrders();
     const since = Date.now() - RECENT_MS;
-    const orders = (await store.list()).filter((o) => new Date(o.createdAt).getTime() >= since);
+    const orders = (await store.listByDays(recentDays())).filter((o) => new Date(o.createdAt).getTime() >= since);
     noStore(res).json(orders);
   }),
 );

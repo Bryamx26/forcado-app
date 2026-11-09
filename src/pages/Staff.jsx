@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import Login from './staff/Login.jsx';
 import Orders from './staff/Orders.jsx';
 import Kitchen from './staff/Kitchen.jsx';
+import Stats from './staff/Stats.jsx';
 import MenuAdmin from './staff/MenuAdmin.jsx';
 import QrCodes from './staff/QrCodes.jsx';
 import { Logo } from '../components/ui.jsx';
@@ -11,12 +12,14 @@ const TABS = [
   { path: '/comptoir', label: 'Commandes' },
   { path: '/comptoir/cuisine', label: 'Cuisine' },
   { path: '/comptoir/carte', label: 'Carte' },
+  { path: '/comptoir/stats', label: 'Statistiques' },
   { path: '/comptoir/qr', label: 'QR codes' },
 ];
 
 const PAGES = {
   '/comptoir/cuisine': Kitchen,
   '/comptoir/carte': MenuAdmin,
+  '/comptoir/stats': Stats,
   '/comptoir/qr': QrCodes,
 };
 

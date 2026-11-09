@@ -67,6 +67,9 @@ export const siteUrl = (
   env.SITE_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
 ).replace(/\/$/, '');
 
+// Fuseau horaire de l'établissement : jours des statistiques, créneaux de retrait (le serveur Vercel est en UTC).
+export const timeZone = env.TIMEZONE || 'Europe/Brussels';
+
 const positiveInt = (name, fallback) => {
   const n = parseInt(env[name], 10);
   return Number.isInteger(n) && n > 0 ? n : fallback;
@@ -92,7 +95,7 @@ export const push = {
 export const takeaway = {
   enabled: env.TAKEAWAY !== 'false',
   openingHours: env.OPENING_HOURS || 'lun-dim 08:00-19:00',
-  timeZone: env.TIMEZONE || 'Europe/Brussels',
+  timeZone,
   slotMin: positiveInt('PICKUP_SLOT_MIN', 15),
   slotCapacity: positiveInt('PICKUP_SLOT_CAPACITY', 5),
   // Délai minimum entre l'envoi et le premier créneau proposé.
@@ -106,6 +109,7 @@ export const takeaway = {
 // Ce que /api/config renvoie au navigateur (jamais la clé privée).
 export const publicConfig = {
   ...brand,
+  timeZone,
   kitchen,
   pushPublicKey: push.publicKey,
   takeaway: { enabled: takeaway.enabled, timeZone: takeaway.timeZone, preorderMaxTotal: takeaway.preorderMaxTotal },

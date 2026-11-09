@@ -10,10 +10,14 @@ Le client scanne le QR code de sa table, choisit ses pâtisseries et boissons (a
 | `/a-propos` | Public | Présentation de l'établissement et de la commande à table |
 | `/commerces` | Commerçants (prospects) | Présentation de l'app, tarif, FAQ, contact |
 | `/mentions-legales`, `/confidentialite` | Public | Pages légales (Belgique, RGPD) |
-| `/table/5` | Clients (QR code de la table 5) | Carte, panier, suivi de la commande |
-| `/comptoir` | Employés (connexion) | Commandes en direct, stats du jour |
-| `/comptoir/carte` | Employés | Marquer un produit épuisé ou disponible |
-| `/comptoir/qr` | Employés | QR codes des tables, prêts à imprimer |
+| `/table/5` | Clients (QR code de la table 5) | Carte en FR, NL, EN ou PT, allergènes, panier, suivi et temps d'attente |
+| `/emporter` | Clients (QR du comptoir ou de la vitrine) | Commande à emporter, tout de suite ou pour une heure de retrait |
+| `/ecran` | Télé de la salle | Numéros en préparation et prêts, rien d'autre |
+| `/comptoir` | Employés (connexion) | Commandes en direct, précommandes, stats du jour |
+| `/comptoir/cuisine` | Employés | Tickets par ancienneté, alertes de retard, total à sortir |
+| `/comptoir/carte` | Employés | Carte, traductions, allergènes, options partagées, ruptures |
+| `/comptoir/stats` | Employés | Ventes, heures de pointe, articles les plus vendus, export CSV |
+| `/comptoir/qr` | Employés | QR codes des tables et de l'emporter, prêts à imprimer |
 
 ## Connexion des employés
 
@@ -48,6 +52,8 @@ npm start          # serveur sur http://localhost:3001
 
 Pour développer avec rechargement à chaud : `npm run dev` puis ouvrir `http://localhost:5173`.
 
+Tests des règles métier (prix, options, créneaux, statistiques…) : `npm test`.
+
 ## QR codes des tables
 
 Le plus simple : **Espace employés → QR codes**, choisir le nombre de tables, puis **Imprimer**. Les codes utilisent automatiquement l'adresse du site.
@@ -78,12 +84,37 @@ Un nouveau client = une copie du dépôt, un projet Vercel, une base Upstash, se
 La carte se gère dans **Espace employés → Carte** :
 
 - créer, renommer, réordonner et supprimer des catégories (une catégorie doit être vide pour être supprimée ; une catégorie vide n'est pas montrée aux clients) ;
-- créer, modifier, réordonner et supprimer des articles : nom, description, prix, emoji, photo et options (un seul choix obligatoire ou plusieurs choix facultatifs, avec supplément éventuel) ;
-- marquer un article épuisé pour la journée.
+- créer, modifier, réordonner et supprimer des articles : nom, description, prix, emoji, photo, allergènes, TVA et options ;
+- options : un seul choix (obligatoire ou non) ou plusieurs choix entre un minimum et un maximum, avec supplément et choix par défaut ;
+- **options partagées** : un groupe commun à plusieurs articles (ex. « Lait » pour tous les cafés), modifié une seule fois ;
+- **traductions** : section Traductions de chaque fiche (NL, EN, PT) ; un texte non traduit s'affiche en français ;
+- **allergènes** : les 14 allergènes réglementaires, « contient » ou « traces ». Tant que la fiche n'est pas vérifiée, le client lit « Allergènes non renseignés : demandez au comptoir » ;
+- marquer un article, ou un seul choix (bouton **Choix**), épuisé pour la journée.
 
 Les changements apparaissent immédiatement chez les clients. Les photos sont réduites par le navigateur (800 px) puis stockées dans Redis (`data/images/` en local). Supprimer un article ne change pas les commandes déjà passées.
 
 Au premier démarrage sur une base vide, la carte d'exemple de `server/menu.js` est chargée. **Ses prix sont des exemples**, à remplacer. Les prix sont toujours recalculés par le serveur, le client ne peut pas les modifier.
+
+## Réglages du service
+
+Toutes ces variables sont facultatives.
+
+| Variable | Défaut | Rôle |
+| --- | --- | --- |
+| `BRAND_LANGUAGES` | `fr,nl,en,pt` | Langues proposées aux clients |
+| `TIMEZONE` | `Europe/Brussels` | Fuseau de l'établissement (créneaux, statistiques) |
+| `KITCHEN_WARN_MIN`, `KITCHEN_LATE_MIN` | `7`, `12` | Minutes avant qu'un ticket passe en orange puis en rouge |
+| `KITCHEN_CAPACITY` | `3` | Commandes préparées en même temps (estimation de l'attente) |
+| `KITCHEN_DEFAULT_PREP_MIN` | `5` | Temps de préparation supposé tant qu'aucune commande n'est prête |
+| `TAKEAWAY` | activé | `false` coupe la commande à emporter |
+| `OPENING_HOURS` | `lun-dim 08:00-19:00` | Heures de retrait, ex. `lun-ven 08:00-12:00,14:00-19:00; sam 09:00-17:00` |
+| `PICKUP_SLOT_MIN`, `PICKUP_SLOT_CAPACITY` | `15`, `5` | Durée d'un créneau, commandes par créneau |
+| `PICKUP_MIN_LEAD_MIN` | `20` | Délai minimum avant le premier créneau |
+| `PREP_LEAD_MIN` | `20` | Une précommande entre en cuisine ce nombre de minutes avant son heure |
+| `PREORDER_MAX_TOTAL` | `50` | Montant maximum d'une précommande (tant que le paiement en ligne n'existe pas) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | aucune | Notifications « commande prête ». Clés : `npx web-push generate-vapid-keys`. Sans elles, le bouton n'apparaît pas |
+
+Sur iPhone, les notifications ne marchent que si le client a ajouté la page à son écran d'accueil ; l'app le lui explique. Page ouverte, le téléphone sonne et vibre dans tous les cas.
 
 ## Référencement (SEO)
 

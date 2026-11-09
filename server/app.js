@@ -6,6 +6,7 @@ import { securityHeaders, sameOrigin, rateLimit, clientIp } from './security.js'
 import { menuRoutes } from './routes/menu.js';
 import { adminRoutes } from './routes/admin.js';
 import { orderRoutes } from './routes/orders.js';
+import { statsRoutes } from './routes/stats.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -37,6 +38,7 @@ app.get('/api/config', (_req, res) => res.json(publicConfig));
 app.use('/api', menuRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/stats', statsRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

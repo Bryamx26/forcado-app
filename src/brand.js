@@ -15,6 +15,7 @@ export const defaultBrand = {
   kitchen: { warnAfterMin: 7, lateAfterMin: 12, capacity: 3, defaultPrepMin: 5 },
   takeaway: { enabled: false, timeZone: 'Europe/Brussels', preorderMaxTotal: 50 },
   pushPublicKey: '',
+  timeZone: 'Europe/Brussels',
   paymentNote: 'Paiement à la table ou au comptoir.',
   website: '',
   description: '',

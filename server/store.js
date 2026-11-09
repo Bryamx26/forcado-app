@@ -6,6 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hasRedis, redisClient } from './redis.js';
 import { isFinal } from '../shared/orderStatus.js';
+import { zonedParts } from '../shared/pickup.js';
+import { timeZone } from './config.js';
 
 const ORDERS = 'forcado:orders';
 const SOLD_OUT = 'forcado:sold-out';
@@ -15,6 +17,10 @@ const NEXT_NUMBER = 'forcado:next-number';
 const ACTIVE = 'forcado:orders:active';
 const ACTIVE_READY = 'forcado:orders:active:v1';
 const BACKFILL_MS = 36 * 60 * 60 * 1000;
+// Index des commandes par jour (heure de l'établissement), pour le comptoir et les statistiques.
+const DAY_PREFIX = 'forcado:orders:day:';
+const DAY_READY = 'forcado:orders:day:v1';
+const orderDay = (order) => zonedParts(Date.parse(order.createdAt), timeZone).date;
 // Durées de préparation des dernières commandes (minutes), pour estimer l'attente.
 const PREP_TIMES = 'forcado:prep-times';
 const PREP_SAMPLE = 20;
@@ -27,6 +33,7 @@ function redisStore() {
   const redis = redisClient();
   const parse = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
   let activeIndexChecked = false;
+  let dayIndexChecked = false;
 
   async function readAll() {
     const all = (await redis.hgetall(ORDERS)) || {};
@@ -44,6 +51,17 @@ function redisStore() {
     await redis.set(ACTIVE_READY, '1');
   }
 
+  // Les commandes passées avant l'index par jour y sont rangées une seule fois.
+  async function ensureDayIndex() {
+    if (dayIndexChecked) return;
+    dayIndexChecked = true;
+    if (await redis.get(DAY_READY)) return;
+    const byDay = {};
+    for (const order of await readAll()) (byDay[orderDay(order)] ||= []).push(order.id);
+    for (const [day, ids] of Object.entries(byDay)) await redis.sadd(DAY_PREFIX + day, ...ids);
+    await redis.set(DAY_READY, '1');
+  }
+
   const store = {
     async get(ids) {
       if (!ids.length) return [];
@@ -57,8 +75,11 @@ function redisStore() {
       if (soldOut) await redis.sadd(SOLD_OUT, key);
       else await redis.srem(SOLD_OUT, key);
     },
-    async list() {
-      return (await readAll()).sort((a, b) => a.number - b.number);
+    // days : jours AAAA-MM-JJ ; commandes triées par numéro.
+    async listByDays(days) {
+      await ensureDayIndex();
+      const idLists = await Promise.all(days.map((day) => redis.smembers(DAY_PREFIX + day)));
+      return (await store.get(idLists.flat())).sort((a, b) => a.number - b.number);
     },
     async active() {
       await ensureActiveIndex();
@@ -91,6 +112,7 @@ function redisStore() {
       order.number = await redis.incr(NEXT_NUMBER);
       await redis.hset(ORDERS, { [order.id]: JSON.stringify(order) });
       await redis.sadd(ACTIVE, order.id);
+      await redis.sadd(DAY_PREFIX + orderDay(order), order.id);
       return order;
     },
     async update(id, patch) {
@@ -123,8 +145,8 @@ function fileStore() {
     fs.writeFileSync(dataFile, JSON.stringify(db, null, 2));
   };
   return {
-    async list() {
-      return db.orders;
+    async listByDays(days) {
+      return db.orders.filter((o) => days.includes(orderDay(o)));
     },
     async active() {
       return db.orders.filter((o) => !isFinal(o.status));

@@ -679,3 +679,22 @@ body.modal-open .toasts { display: none; }
 .takeaway-badge { text-align: center; display: grid; place-items: center; }
 .takeaway-badge strong { font-size: var(--text-body); line-height: var(--leading-body); }
 .scheduled { margin-bottom: var(--space-4); }
+
+/* Statistiques (espace employés) */
+.stats-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.stats-page .stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.stats-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-5); margin: var(--space-5) 0; }
+.bar-chart { margin: 0; }
+.bar-chart figcaption { display: flex; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); font-size: var(--text-small); }
+.bar-chart-title { font-weight: 600; }
+.bar-chart-value { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.bar-chart svg { width: 100%; height: auto; max-height: 220px; display: block; overflow: visible; }
+.bar-chart-bar { fill: var(--brand-blue); }
+.bar-chart-bar.on { fill: var(--brand-blue-strong); }
+.bar-chart-hit { fill: transparent; }
+.bar-chart-axis { stroke: var(--border-soft); stroke-width: 1; }
+.bar-chart-tick { fill: var(--ink-muted); font-size: 10px; text-anchor: middle; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: var(--text-small); }
+.stats-table th, .stats-table td { text-align: left; padding: var(--space-2); border-bottom: 1px solid var(--border-soft); }
+.stats-table td { font-variant-numeric: tabular-nums; }
+.stats-page .stats { margin-top: var(--space-4); }
