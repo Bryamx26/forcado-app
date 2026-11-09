@@ -1,0 +1,16 @@
+export default {
+  'allergen.gluten': 'Gluten',
+  'allergen.crustaces': 'Crustacés',
+  'allergen.oeufs': 'Œufs',
+  'allergen.poisson': 'Poisson',
+  'allergen.arachides': 'Arachides',
+  'allergen.soja': 'Soja',
+  'allergen.lait': 'Lait',
+  'allergen.fruits_coque': 'Fruits à coque',
+  'allergen.celeri': 'Céleri',
+  'allergen.moutarde': 'Moutarde',
+  'allergen.sesame': 'Sésame',
+  'allergen.sulfites': 'Sulfites',
+  'allergen.lupin': 'Lupin',
+  'allergen.mollusques': 'Mollusques',
+};

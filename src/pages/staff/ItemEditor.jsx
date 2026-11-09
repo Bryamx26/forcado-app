@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { api, AuthError, euro } from '../../api.js';
 import { Alert, Modal } from '../../components/ui.jsx';
+import AllergenEditor, { allergenFormState, allergenPayload } from './AllergenEditor.jsx';
 
 // Réduit la photo dans le navigateur (800 px max, JPEG) avant l'envoi : rapide et léger pour la base.
 function resizeImage(file, max = 800) {
@@ -36,6 +37,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
     emoji: item?.emoji || '🥐',
     image: item?.image || null,
     options: structuredClone(item?.options || []),
+    allergens: allergenFormState(item),
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -76,6 +78,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
     try {
       const body = {
         ...form,
+        ...allergenPayload(form.allergens),
         options: form.options.map((g) => ({
           ...g,
           choices: g.choices.map((c) => ({ ...c, price: String(c.price ?? 0).replace(',', '.') || 0 })),
@@ -147,6 +150,8 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
           Description
           <textarea value={form.description} onChange={(e) => set({ description: e.target.value })} maxLength={200} rows={2} />
         </label>
+
+        <AllergenEditor value={form.allergens} onChange={(allergens) => set({ allergens })} />
 
         <h3 className="editor-title">Options proposées au client</h3>
         {form.options.length === 0 && <p className="muted small">Aucune option : le client ajoute l'article tel quel.</p>}

@@ -1,9 +1,17 @@
 import { euro } from '../../api.js';
 import ProductVisual from './ProductVisual.jsx';
+import { ALLERGEN_MATCH } from '../../../shared/allergens.js';
+
+// Avertissement quand le client a indiqué ses allergies.
+const ALLERGEN_FLAGS = {
+  [ALLERGEN_MATCH.TRACES]: { text: 'Traces possibles', className: 'product-flag-traces' },
+  [ALLERGEN_MATCH.UNKNOWN]: { text: 'Allergènes non renseignés', className: '' },
+};
 
 // Carte d'un article : toute la carte ouvre la fiche, le bouton + ajoute directement un article sans options.
-export default function ProductCard({ item, onOpen, onQuickAdd }) {
+export default function ProductCard({ item, allergenMatch, onOpen, onQuickAdd }) {
   const out = item.soldOut;
+  const flag = ALLERGEN_FLAGS[allergenMatch];
   return (
     <article className={`product ${out ? 'product-out' : ''}`}>
       <ProductVisual item={item} className="product-media" />
@@ -14,6 +22,7 @@ export default function ProductCard({ item, onOpen, onQuickAdd }) {
           </button>
         </h3>
         {item.description && <p className="product-desc">{item.description}</p>}
+        {flag && <span className={`product-flag ${flag.className}`}>⚠ {flag.text}</span>}
       </div>
       <div className="product-footer">
         {out ? <span className="product-soldout">Épuisé</span> : <span className="price">{euro(item.price)}</span>}

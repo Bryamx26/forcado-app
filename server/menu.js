@@ -1,6 +1,6 @@
 // Carte de départ, chargée la toute première fois (base vide).
 // Ensuite, la carte se gère depuis l'espace employés (onglet Carte) et vit dans la base.
-// Les prix sont indicatifs : à remplacer par la vraie carte de Forcado.
+// Les prix et les allergènes sont indicatifs : à remplacer par la vraie carte de Forcado.
 export const defaultMenu = [
   {
     id: 'patisseries',
@@ -13,6 +13,8 @@ export const defaultMenu = [
         price: 1.9,
         emoji: '🥧',
         image: '/produits/nata.jpg',
+        allergens: ['gluten', 'oeufs', 'lait'],
+        mayContain: ['fruits_coque'],
         options: [
           { id: 'topping', name: 'Garniture', type: 'single', required: true, choices: [
             { id: 'nature', name: 'Nature', price: 0 },
@@ -32,6 +34,8 @@ export const defaultMenu = [
         description: 'Beignet moelleux roulé dans le sucre.',
         price: 2.8,
         emoji: '🍩',
+        allergens: ['gluten', 'oeufs', 'lait'],
+        mayContain: ['fruits_coque', 'soja'],
         options: [
           { id: 'garniture', name: 'Garniture', type: 'single', required: true, choices: [
             { id: 'creme', name: 'Crème pâtissière', price: 0 },
@@ -46,6 +50,8 @@ export const defaultMenu = [
         description: 'Brioche garnie de noix de coco râpée.',
         price: 2.5,
         emoji: '🥯',
+        allergens: ['gluten', 'oeufs', 'lait'],
+        mayContain: ['fruits_coque'],
         options: [
           { id: 'extras', name: 'Avec', type: 'multi', choices: [
             { id: 'beurre', name: 'Beurre', price: 0.5 },
@@ -60,6 +66,8 @@ export const defaultMenu = [
         description: 'Feuilleté roulé à la crème d\'amande et d\'œuf.',
         price: 2.9,
         emoji: '🥐',
+        allergens: ['gluten', 'oeufs', 'lait', 'fruits_coque'],
+        mayContain: [],
         options: [],
       },
       {
@@ -68,6 +76,8 @@ export const defaultMenu = [
         description: 'Petite tartelette au fromage frais et à la cannelle.',
         price: 2.2,
         emoji: '🧁',
+        allergens: ['gluten', 'oeufs', 'lait'],
+        mayContain: ['fruits_coque'],
         options: [],
       },
       {
@@ -76,6 +86,8 @@ export const defaultMenu = [
         description: 'Muffin à la farine de riz, léger et citronné.',
         price: 2.0,
         emoji: '🍰',
+        allergens: ['gluten', 'oeufs', 'lait'],
+        mayContain: ['fruits_coque'],
         options: [],
       },
     ],
@@ -90,6 +102,8 @@ export const defaultMenu = [
         description: 'L\'expresso portugais, court et intense.',
         price: 1.8,
         emoji: '☕',
+        allergens: [],
+        mayContain: [],
         options: [
           { id: 'sucre', name: 'Sucre', type: 'single', required: true, choices: [
             { id: 'sans', name: 'Sans sucre', price: 0 },
@@ -103,6 +117,8 @@ export const defaultMenu = [
         description: 'Expresso allongé de lait chaud, servi en verre.',
         price: 3.2,
         emoji: '🥛',
+        allergens: ['lait'],
+        mayContain: ['soja'],
         options: [
           { id: 'lait', name: 'Lait', type: 'single', required: true, choices: [
             { id: 'vache', name: 'Lait entier', price: 0 },
@@ -125,6 +141,8 @@ export const defaultMenu = [
         description: 'Sélection de thés en infusion.',
         price: 2.8,
         emoji: '🍵',
+        allergens: [],
+        mayContain: [],
         options: [
           { id: 'variete', name: 'Variété', type: 'single', required: true, choices: [
             { id: 'vert', name: 'Vert', price: 0 },
@@ -139,6 +157,8 @@ export const defaultMenu = [
         description: 'Pressé à la minute.',
         price: 4.0,
         emoji: '🍊',
+        allergens: [],
+        mayContain: [],
         options: [
           { id: 'glace', name: 'Glaçons', type: 'single', required: true, choices: [
             { id: 'sans', name: 'Sans glaçons', price: 0 },

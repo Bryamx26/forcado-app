@@ -107,6 +107,7 @@ export default function MenuAdmin({ onAuthError }) {
                   {' '}· {euro(item.price)}
                   {item.options?.length ? ` · ${item.options.length} option${item.options.length > 1 ? 's' : ''}` : ''}
                 </span>
+                {!Array.isArray(item.allergens) && <span className="product-flag-traces small"> · Allergènes à renseigner</span>}
               </span>
               <label className="switch">
                 <input type="checkbox" checked={!item.soldOut} onChange={() => toggle(item)} />

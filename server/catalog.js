@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { hasRedis, redisClient } from './redis.js';
 import { defaultMenu } from './menu.js';
 import { roundMoney } from '../shared/money.js';
+import { ALLERGEN_CODES } from '../shared/allergens.js';
 
 
 const MENU_KEY = 'forcado:menu';
@@ -138,6 +139,15 @@ function cleanOptions(raw) {
   });
 }
 
+// null : allergènes pas encore renseignés (différent d'une liste vide, qui veut dire « aucun »).
+function cleanAllergens(raw, label, { nullable = false } = {}) {
+  if (raw == null) return nullable ? null : [];
+  if (!Array.isArray(raw)) throw new CatalogError(`${label} invalide`);
+  const unknown = raw.find((code) => !ALLERGEN_CODES.includes(code));
+  if (unknown) throw new CatalogError(`${label} : « ${unknown} » n'est pas un allergène reconnu`);
+  return ALLERGEN_CODES.filter((code) => raw.includes(code));
+}
+
 function cleanImage(value) {
   if (value == null || value === '') return null;
   const v = String(value);
@@ -153,6 +163,8 @@ function cleanItem(raw) {
     emoji: text(raw?.emoji, "L'emoji", 8) || '🍽️',
     image: cleanImage(raw?.image),
     options: cleanOptions(raw?.options),
+    allergens: cleanAllergens(raw?.allergens, 'Allergènes', { nullable: true }),
+    mayContain: cleanAllergens(raw?.mayContain, 'Traces possibles'),
   };
 }
 

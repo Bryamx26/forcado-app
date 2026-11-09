@@ -4,6 +4,7 @@ import { Modal } from '../../components/ui.jsx';
 import { MAX_LINE_QTY, MAX_NOTE_LENGTH } from '../../../shared/orderStatus.js';
 import { defaultSelection, isSingleChoice, toggleChoice, unitPrice } from '../../../shared/options.js';
 import ProductVisual from './ProductVisual.jsx';
+import AllergenInfo from './AllergenInfo.jsx';
 
 function OptionGroup({ group, selected, onToggle }) {
   const single = isSingleChoice(group);
@@ -67,6 +68,7 @@ export default function ItemSheet({ item, onClose, onAdd }) {
       {item.options.map((group) => (
         <OptionGroup key={group.id} group={group} selected={selected} onToggle={toggle} />
       ))}
+      <AllergenInfo item={item} />
       <label className="field note">
         Remarque (allergie, etc.)
         <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={MAX_NOTE_LENGTH} placeholder="Facultatif" />
