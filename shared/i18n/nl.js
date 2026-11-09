@@ -88,4 +88,12 @@ export default {
   'board.ready': 'Klaar',
   'board.empty': '—',
   'tracker.wait': 'Klaar over ongeveer {minutes} min',
+  'push.readyTitle': 'Bestelling nr. {number} is klaar',
+  'push.readyTable': 'We brengen ze naar tafel {table}.',
+  'push.subscribe': 'Verwittig me als het klaar is',
+  'push.subscribed': 'Je krijgt een melding zodra je bestelling klaar is.',
+  'push.denied': 'Meldingen zijn geblokkeerd voor deze site in je browser.',
+  'push.failed': 'Meldingen kunnen niet worden ingeschakeld op deze telefoon.',
+  'push.iosHint': 'Op iPhone: zet deze pagina eerst op je beginscherm (Deel, dan ‘Zet op beginscherm’).',
+  'tracker.ready': 'Klaar!',
 };

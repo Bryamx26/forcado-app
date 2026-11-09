@@ -3,6 +3,7 @@ import { api, euro } from '../../api.js';
 import { StatusBadge } from '../../components/ui.jsx';
 import { ORDER_STATUS } from '../../../shared/orderStatus.js';
 import { useT } from '../../i18n.jsx';
+import { chime } from '../../sound.js';
 import { forgetOrder, readAcks, readMyOrders, saveAck } from './myOrders.js';
 
 const POLL_MS = 20000;
@@ -26,11 +27,30 @@ function Progress({ status }) {
   );
 }
 
+const becameReady = (order, before) => before && order.status === ORDER_STATUS.READY && before.status !== ORDER_STATUS.READY;
+
 // Annulation ou modification vue pendant que la page est ouverte.
 function hasNews(order, before) {
   if (!before) return false;
   const cancelled = order.status === ORDER_STATUS.CANCELLED && before.status !== ORDER_STATUS.CANCELLED;
   return cancelled || order.modifiedAt !== before.modifiedAt;
+}
+
+// Commande prête pendant que la page est ouverte : son, vibration, et le titre de l'onglet le dit.
+function alertReady() {
+  chime();
+  navigator.vibrate?.([300, 150, 300, 150, 300]);
+}
+
+function useReadyTitle(hasReadyOrder, label) {
+  useEffect(() => {
+    if (!hasReadyOrder) return;
+    const original = document.title;
+    document.title = `✓ ${label} · ${original}`;
+    return () => {
+      document.title = original;
+    };
+  }, [hasReadyOrder, label]);
 }
 
 // Interroge le serveur sur les commandes de ce téléphone, au rythme du flux temps réel (live) et en secours toutes les 20 s.
@@ -48,7 +68,8 @@ function useTrackedOrders(place, live) {
       try {
         const data = await api.track(ids);
         if (!alive) return;
-        if (data.some((o) => hasNews(o, seen.current[o.id]))) navigator.vibrate?.([200, 100, 200]);
+        if (data.some((o) => becameReady(o, seen.current[o.id]))) alertReady();
+        else if (data.some((o) => hasNews(o, seen.current[o.id]))) navigator.vibrate?.([200, 100, 200]);
         seen.current = { ...seen.current, ...Object.fromEntries(data.map((o) => [o.id, o])) };
         // Les commandes annulées restent affichées jusqu'à ce que le client ferme l'avis.
         setOrders(data.filter((o) => o.status !== ORDER_STATUS.SERVED).reverse());
@@ -122,6 +143,7 @@ export default function OrderTracker({ place, live }) {
   const [orders, removeOrder] = useTrackedOrders(place, live);
   const [acks, setAcks] = useState(readAcks);
   const t = useT();
+  useReadyTitle(orders.some((o) => o.status === ORDER_STATUS.READY), t('tracker.ready'));
 
   // Le client a lu l'avis d'annulation : la commande n'est plus suivie sur cet appareil.
   const dismiss = (id) => {

@@ -4,11 +4,12 @@ import { getMenu } from '../catalog.js';
 import { customerMenu } from '../availability.js';
 import { boardNumbers, waitTimes } from '../queue.js';
 import { orderStatusChanged } from '../orderEvents.js';
+import { cleanSubscription, pushEnabled } from '../push.js';
 import { store } from '../store.js';
 import { notify } from '../events.js';
 import { requireStaff } from '../auth.js';
 import { handle, noStore } from '../http.js';
-import { ORDER_STATUSES } from '../../shared/orderStatus.js';
+import { ORDER_STATUSES, isFinal } from '../../shared/orderStatus.js';
 import { DEFAULT_LANGUAGE, isSupported } from '../../shared/i18n/index.js';
 import { OrderError, buildLines, editLines, newOrder, orderTotal, assertEditable, assertTransition, statusChange } from '../orders.js';
 
@@ -52,6 +53,19 @@ orderRoutes.get(
     const orders = await store.get(ids);
     const waits = await waitTimes(orders);
     noStore(res).json(orders.map((o) => publicView(o, waits[o.id] ?? null)));
+  }),
+);
+
+// Le téléphone du client s'abonne aux notifications de sa commande (l'identifiant de commande fait office de preuve).
+orderRoutes.post(
+  '/:id/push',
+  handle(async (req, res) => {
+    if (!pushEnabled) return res.status(404).json({ error: 'Notifications non configurées' });
+    if (!ORDER_ID.test(req.params.id)) throw new OrderError('Commande introuvable', { status: 404, code: 'order_not_found' });
+    const order = await findOrder(req.params.id);
+    if (isFinal(order.status)) throw new OrderError('Cette commande est terminée.', { status: 409, code: 'order_closed' });
+    await store.addPushSubscription(order.id, cleanSubscription(req.body?.subscription));
+    res.status(201).json({ ok: true });
   }),
 );
 

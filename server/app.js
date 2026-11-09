@@ -26,6 +26,7 @@ app.post(
 );
 app.get('/api/orders/track', rateLimit('track', 1200, 60));
 app.get('/api/orders/board', rateLimit('board', 600, 60));
+app.post('/api/orders/:id/push', rateLimit('push', 60, 10 * 60));
 // Le flux des employés connectés n'est pas limité : le comptoir est souvent sur le même wifi que les clients.
 const eventsLimit = rateLimit('events', 300, 60);
 app.get('/api/events', (req, res, next) => (staffFrom(req) ? next() : eventsLimit(req, res, next)));

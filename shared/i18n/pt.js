@@ -88,4 +88,12 @@ export default {
   'board.ready': 'Prontos',
   'board.empty': '—',
   'tracker.wait': 'Pronto em cerca de {minutes} min',
+  'push.readyTitle': 'Pedido n.º {number} pronto',
+  'push.readyTable': 'Vamos levá-lo à mesa {table}.',
+  'push.subscribe': 'Avisar-me quando estiver pronto',
+  'push.subscribed': 'Será avisado quando o seu pedido estiver pronto.',
+  'push.denied': 'As notificações estão bloqueadas para este site no seu navegador.',
+  'push.failed': 'Não foi possível ativar as notificações neste telemóvel.',
+  'push.iosHint': 'No iPhone: adicione primeiro esta página ao ecrã principal (Partilhar e depois «Adicionar ao ecrã principal»).',
+  'tracker.ready': 'Pronto!',
 };

@@ -7,6 +7,7 @@ import ItemSheet from './customer/ItemSheet.jsx';
 import ProductCard from './customer/ProductCard.jsx';
 import OrderTracker from './customer/OrderTracker.jsx';
 import CartSheet from './customer/CartSheet.jsx';
+import ReadyAlert from './customer/ReadyAlert.jsx';
 import { useCustomerMenu } from './customer/useCustomerMenu.js';
 import { rememberOrder } from './customer/myOrders.js';
 import AllergenFilter, { useAvoidedAllergens } from './customer/AllergenFilter.jsx';
@@ -53,6 +54,7 @@ function PlacedNotice({ order, table, onClose }) {
       <div>
         <strong>{t('placed.title', { number: order.number })}</strong>
         <div>{t('placed.table', { table, total: euro(order.total) })}</div>
+        <ReadyAlert orderId={order.id} />
       </div>
       <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.ok')}</button>
     </div>

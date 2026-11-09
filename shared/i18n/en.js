@@ -88,4 +88,12 @@ export default {
   'board.ready': 'Ready',
   'board.empty': '—',
   'tracker.wait': 'Ready in about {minutes} min',
+  'push.readyTitle': 'Order no. {number} is ready',
+  'push.readyTable': 'We are bringing it to table {table}.',
+  'push.subscribe': 'Notify me when it’s ready',
+  'push.subscribed': 'You will be notified when your order is ready.',
+  'push.denied': 'Notifications are blocked for this site in your browser.',
+  'push.failed': 'Notifications could not be turned on on this phone.',
+  'push.iosHint': 'On iPhone: first add this page to your home screen (Share, then “Add to Home Screen”).',
+  'tracker.ready': 'Ready!',
 };

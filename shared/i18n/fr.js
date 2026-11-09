@@ -88,4 +88,12 @@ export default {
   'board.ready': 'Prêtes',
   'board.empty': '—',
   'tracker.wait': 'Prête dans environ {minutes} min',
+  'push.readyTitle': 'Commande n° {number} prête',
+  'push.readyTable': 'On vous l’apporte à la table {table}.',
+  'push.subscribe': 'Me prévenir quand c’est prêt',
+  'push.subscribed': 'Vous serez prévenu quand votre commande sera prête.',
+  'push.denied': 'Les notifications sont bloquées pour ce site dans votre navigateur.',
+  'push.failed': 'Impossible d’activer les notifications sur ce téléphone.',
+  'push.iosHint': 'Sur iPhone : ajoutez d’abord cette page à l’écran d’accueil (Partager, puis « Sur l’écran d’accueil »).',
+  'tracker.ready': 'Prête !',
 };

@@ -81,5 +81,12 @@ export const kitchen = {
   defaultPrepMin: positiveInt('KITCHEN_DEFAULT_PREP_MIN', 5),
 };
 
-// Ce que /api/config renvoie au navigateur.
-export const publicConfig = { ...brand, kitchen };
+// Notifications Web Push (clés générées par `npx web-push generate-vapid-keys`). Sans clés, le bouton n'apparaît pas.
+export const push = {
+  publicKey: env.VAPID_PUBLIC_KEY || '',
+  privateKey: env.VAPID_PRIVATE_KEY || '',
+  subject: env.VAPID_SUBJECT || (brand.legal.email ? `mailto:${brand.legal.email}` : brand.website),
+};
+
+// Ce que /api/config renvoie au navigateur (jamais la clé privée).
+export const publicConfig = { ...brand, kitchen, pushPublicKey: push.publicKey };

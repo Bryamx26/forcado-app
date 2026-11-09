@@ -18,6 +18,10 @@ const BACKFILL_MS = 36 * 60 * 60 * 1000;
 // Durées de préparation des dernières commandes (minutes), pour estimer l'attente.
 const PREP_TIMES = 'forcado:prep-times';
 const PREP_SAMPLE = 20;
+// Abonnements aux notifications d'une commande : quelques téléphones au plus, oubliés après une journée.
+const PUSH_PREFIX = 'forcado:push:';
+const PUSH_TTL_SEC = 24 * 60 * 60;
+const MAX_PUSH_PER_ORDER = 3;
 
 function redisStore() {
   const redis = redisClient();
@@ -68,6 +72,21 @@ function redisStore() {
     async prepTimes() {
       return ((await redis.lrange(PREP_TIMES, 0, -1)) || []).map(Number);
     },
+    async addPushSubscription(orderId, subscription) {
+      const key = PUSH_PREFIX + orderId;
+      if ((await redis.scard(key)) >= MAX_PUSH_PER_ORDER) return;
+      await redis.sadd(key, JSON.stringify(subscription));
+      await redis.expire(key, PUSH_TTL_SEC);
+    },
+    async pushSubscriptions(orderId) {
+      return ((await redis.smembers(PUSH_PREFIX + orderId)) || []).map(parse);
+    },
+    async removePushSubscription(orderId, subscription) {
+      await redis.srem(PUSH_PREFIX + orderId, JSON.stringify(subscription));
+    },
+    async dropPushSubscriptions(orderId) {
+      await redis.del(PUSH_PREFIX + orderId);
+    },
     async create(order) {
       order.number = await redis.incr(NEXT_NUMBER);
       await redis.hset(ORDERS, { [order.id]: JSON.stringify(order) });
@@ -97,6 +116,8 @@ function fileStore() {
   }
   db.soldOut ??= [];
   db.prepTimes ??= [];
+  // En local, les abonnements aux notifications restent en mémoire.
+  const pushByOrder = new Map();
   const save = () => {
     fs.mkdirSync(path.dirname(dataFile), { recursive: true });
     fs.writeFileSync(dataFile, JSON.stringify(db, null, 2));
@@ -125,6 +146,19 @@ function fileStore() {
     },
     async prepTimes() {
       return db.prepTimes;
+    },
+    async addPushSubscription(orderId, subscription) {
+      const list = pushByOrder.get(orderId) || [];
+      if (list.length < MAX_PUSH_PER_ORDER) pushByOrder.set(orderId, [...list, subscription]);
+    },
+    async pushSubscriptions(orderId) {
+      return pushByOrder.get(orderId) || [];
+    },
+    async removePushSubscription(orderId, subscription) {
+      pushByOrder.set(orderId, (pushByOrder.get(orderId) || []).filter((s) => s.endpoint !== subscription.endpoint));
+    },
+    async dropPushSubscriptions(orderId) {
+      pushByOrder.delete(orderId);
     },
     async create(order) {
       order.number = db.nextNumber++;
