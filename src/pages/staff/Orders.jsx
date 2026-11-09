@@ -6,6 +6,7 @@ import { ORDER_STATUS, isFinal } from '../../../shared/orderStatus.js';
 import OrderEditor from './OrderEditor.jsx';
 import OrderTicket from './OrderTicket.jsx';
 import { useStaffOrders } from './useStaffOrders.js';
+import { usePlaceLabel } from './place.js';
 
 const COLUMNS = [
   { status: ORDER_STATUS.NEW, title: 'Reçues', next: { status: ORDER_STATUS.PREPARING, label: 'Démarrer' } },
@@ -47,6 +48,26 @@ function OrderCard({ order, column, now, onStatus, onEdit }) {
   );
 }
 
+// Précommandes pas encore en cuisine : elles y entrent seules avant l'heure de retrait (PREP_LEAD_MIN).
+function ScheduledOrders({ orders, placeLabel, onStatus }) {
+  if (!orders.length) return null;
+  return (
+    <section className="panel scheduled" aria-labelledby="scheduled-title">
+      <h2 id="scheduled-title">Précommandes ({orders.length})</h2>
+      {orders.map((o) => (
+        <div key={o.id} className="history-row">
+          <span>n° {o.number} · {placeLabel(o)}</span>
+          <span className="muted small">{o.lines.map((l) => `${l.qty} × ${l.name}`).join(', ')}</span>
+          <span className="admin-tools">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onStatus(o, ORDER_STATUS.CANCELLED)}>Annuler</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onStatus(o, ORDER_STATUS.NEW)}>Envoyer en cuisine</button>
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 // Chiffres du jour en tête du comptoir.
 function todaySummary(orders) {
   const today = orders.filter((o) => isToday(o.createdAt) && o.status !== ORDER_STATUS.CANCELLED);
@@ -71,6 +92,8 @@ export default function Orders({ onAuthError }) {
 
   const onStatus = (order, status) => (status === ORDER_STATUS.CANCELLED ? setCancelling(order) : setStatus(order, status));
   const summary = todaySummary(orders);
+  const placeLabel = usePlaceLabel();
+  const scheduled = orders.filter((o) => o.status === ORDER_STATUS.SCHEDULED).sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
   const history = orders.filter((o) => isFinal(o.status)).reverse().slice(0, HISTORY_SIZE);
 
   return (
@@ -95,6 +118,8 @@ export default function Orders({ onAuthError }) {
       </div>
 
       {error && <Alert>{error}</Alert>}
+
+      <ScheduledOrders orders={scheduled} placeLabel={placeLabel} onStatus={onStatus} />
 
       <div className="board">
         {COLUMNS.map((col) => {
@@ -125,7 +150,7 @@ export default function Orders({ onAuthError }) {
           {history.length === 0 && <p className="muted small">Rien pour l'instant.</p>}
           {history.map((o) => (
             <div key={o.id} className="history-row">
-              <span>n° {o.number} · Table {o.table}</span>
+              <span>n° {o.number} · {placeLabel(o)}</span>
               <span className="muted small">{o.lines.map((l) => `${l.qty} × ${l.name}`).join(', ')}</span>
               <StatusBadge status={o.status} />
             </div>
@@ -157,7 +182,7 @@ export default function Orders({ onAuthError }) {
             setStatus(order, ORDER_STATUS.CANCELLED);
           }}
         >
-          <p>Table {cancelling.table}. Elle disparaîtra du comptoir et le client sera prévenu sur son téléphone.</p>
+          <p>{placeLabel(cancelling)}. Elle disparaîtra du comptoir et le client sera prévenu sur son téléphone.</p>
         </ConfirmDialog>
       )}
     </>

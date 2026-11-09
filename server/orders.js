@@ -2,6 +2,7 @@
 import { ORDER_STATUS, isFinal, MAX_LINES, MAX_NOTE_LENGTH, STATUS_LABELS, clampQty } from '../shared/orderStatus.js';
 import { roundMoney } from '../shared/money.js';
 import { groupLimits, pickChoices } from '../shared/options.js';
+import { ORDER_MODE } from '../shared/pickup.js';
 
 // code : identifiant stable de l'erreur, que l'écran du client traduit dans sa langue (avec vars si besoin).
 export class OrderError extends Error {
@@ -32,7 +33,7 @@ function checkGroup(item, group, choices) {
 // Recalcule une ligne à partir de la carte : le client ne fixe jamais les prix.
 // Les ruptures (soldOut) ne sont vérifiées que si la carte les porte : la carte du client les porte, celle de
 // l'équipe non, pour qu'elle puisse corriger une commande avec ce qui reste en cuisine.
-export function buildLine(raw, menu) {
+export function buildLine(raw, menu, mode = ORDER_MODE.DINE_IN) {
   const item = findMenuItem(menu, raw?.itemId);
   if (!item) {
     throw new OrderError("Un article n'est plus à la carte. Retirez-le puis renvoyez la commande.", { code: 'item_gone' });
@@ -65,12 +66,14 @@ export function buildLine(raw, menu) {
     note: String(raw.note || '').slice(0, MAX_NOTE_LENGTH),
     unitPrice: roundMoney(unit),
     total: roundMoney(unit * qty),
+    // Taux de TVA selon sur place / à emporter, s'il est renseigné sur l'article (à valider avec le comptable).
+    vatRate: item.vat?.[mode] ?? null,
   };
 }
 
-export function buildLines(rawLines, menu) {
+export function buildLines(rawLines, menu, mode) {
   if (!Array.isArray(rawLines) || rawLines.length === 0) throw new OrderError('Le panier est vide', { code: 'empty_cart' });
-  return rawLines.slice(0, MAX_LINES).map((raw) => buildLine(raw, menu));
+  return rawLines.slice(0, MAX_LINES).map((raw) => buildLine(raw, menu, mode));
 }
 
 export const orderTotal = (lines) => roundMoney(lines.reduce((sum, line) => sum + line.total, 0));
@@ -109,16 +112,18 @@ export function assertTransition(order, nextStatus, seenStatus) {
   }
 }
 
-export function newOrder({ table, lines, lang, now = new Date() }) {
+// placement : { mode, table } sur place, ou { mode, table: null, customerName, pickupAt, status } à emporter.
+export function newOrder({ placement, lines, lang, now = new Date() }) {
   const at = now.toISOString();
+  const { status = ORDER_STATUS.NEW, ...where } = placement;
   return {
     id: crypto.randomUUID(),
-    table,
+    ...where,
     lang,
     lines,
     total: orderTotal(lines),
-    status: ORDER_STATUS.NEW,
-    statusHistory: [{ status: ORDER_STATUS.NEW, at }],
+    status,
+    statusHistory: [{ status, at }],
     createdAt: at,
     updatedAt: at,
   };

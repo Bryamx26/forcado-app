@@ -80,3 +80,11 @@ test('un changement de statut fait par un collègue est protégé', () => {
   assert.throws(() => assertTransition({ number: 4, status: 'servie' }, 'prete'), { status: 409 });
   assert.throws(() => assertEditable({ status: 'annulee' }), { code: 'order_closed' });
 });
+
+test('le taux de TVA suit le mode de la commande', () => {
+  const m = structuredClone(menu);
+  m[0].items[0].vat = { sur_place: 12, emporter: 6 };
+  assert.equal(buildLine({ itemId: 'galao', options: { lait: 'vache' } }, m, 'emporter').vatRate, 6);
+  assert.equal(buildLine({ itemId: 'galao', options: { lait: 'vache' } }, m).vatRate, 12);
+  assert.equal(buildLine({ itemId: 'galao', options: { lait: 'vache' } }, menu).vatRate, null);
+});

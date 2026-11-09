@@ -12,6 +12,7 @@ export default function QrCodes() {
     }
   });
   const [codes, setCodes] = useState([]);
+  const [takeawayCode, setTakeawayCode] = useState(null);
   const base = window.location.origin;
 
   useEffect(() => {
@@ -27,6 +28,12 @@ export default function QrCodes() {
       ),
     ).then(setCodes);
   }, [count, base, brand.primary]);
+
+  // QR à afficher au comptoir ou en vitrine : commande à emporter, sans numéro de table.
+  useEffect(() => {
+    if (!brand.takeaway?.enabled) return;
+    QRCode.toDataURL(`${base}/emporter`, { width: 480, margin: 1, color: { dark: brand.primary } }).then(setTakeawayCode);
+  }, [base, brand.primary, brand.takeaway?.enabled]);
 
   return (
     <section className="panel">
@@ -45,6 +52,15 @@ export default function QrCodes() {
         <button type="button" className="btn btn-secondary" onClick={() => window.print()}>Imprimer les QR des tables</button>
       </div>
       <div className="qr-grid">
+        {takeawayCode && (
+          <div className="qr-card">
+            <div className="qr-brand">{brand.name}</div>
+            <img src={takeawayCode} alt="QR code à emporter" />
+            <div className="qr-table">À emporter</div>
+            <div className="small">Scannez pour commander et passer prendre</div>
+            <a className="small no-print" href={takeawayCode} download="a-emporter.png">Télécharger</a>
+          </div>
+        )}
         {codes.map((c) => (
           <div key={c.table} className="qr-card">
             <div className="qr-brand">{brand.name}</div>

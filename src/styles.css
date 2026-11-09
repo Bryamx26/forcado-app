@@ -672,3 +672,10 @@ body.modal-open .toasts { display: none; }
 .tracker-wait { margin: var(--space-2) 0 0; font-weight: 600; }
 .confirm .btn { margin-top: var(--space-2); }
 .ready-alert-done { color: var(--success); font-weight: 600; margin: var(--space-2) 0 0; }
+
+/* À emporter */
+.takeaway-fields { margin-top: var(--space-4); }
+.alert-inline { color: var(--danger); font-weight: 600; }
+.takeaway-badge { text-align: center; display: grid; place-items: center; }
+.takeaway-badge strong { font-size: var(--text-body); line-height: var(--leading-body); }
+.scheduled { margin-bottom: var(--space-4); }

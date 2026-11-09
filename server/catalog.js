@@ -226,6 +226,20 @@ function cleanAllergens(raw, label, { nullable = false } = {}) {
   return ALLERGEN_CODES.filter((code) => raw.includes(code));
 }
 
+// Taux de TVA belges ; null tant que le comptable ne les a pas donnés.
+const VAT_RATES = [0, 6, 12, 21];
+function cleanVatRate(value, label) {
+  if (value == null || value === '') return null;
+  const rate = Number(value);
+  if (!VAT_RATES.includes(rate)) throw new CatalogError(`${label} : taux de TVA invalide`);
+  return rate;
+}
+
+const cleanVat = (raw) => ({
+  sur_place: cleanVatRate(raw?.sur_place, 'TVA sur place'),
+  emporter: cleanVatRate(raw?.emporter, 'TVA à emporter'),
+});
+
 const categoryName = (value) => localizedText(value, 'Le nom de la catégorie', 40, { required: true });
 
 function cleanImage(value) {
@@ -244,6 +258,7 @@ function cleanItem(raw, optionSets) {
     image: cleanImage(raw?.image),
     options: cleanOptions(raw?.options),
     optionSetIds: cleanOptionSetIds(raw?.optionSetIds, optionSets),
+    vat: cleanVat(raw?.vat),
     allergens: cleanAllergens(raw?.allergens, 'Allergènes', { nullable: true }),
     mayContain: cleanAllergens(raw?.mayContain, 'Traces possibles'),
   };

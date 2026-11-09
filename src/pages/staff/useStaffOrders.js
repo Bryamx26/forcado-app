@@ -11,14 +11,16 @@ const POLL_MS = 15000;
 export function useStaffOrders(onAuthError) {
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState('');
+  // Statut de chaque commande au dernier chargement : une commande qui arrive en « reçue » (nouvelle, ou
+  // précommande qui entre en cuisine) fait biper le comptoir.
   const known = useRef(null);
 
   const refresh = async () => {
     try {
       const data = await api.orders();
-      const isNew = (o) => known.current && !known.current.has(o.id) && o.status === ORDER_STATUS.NEW;
-      if (data.some(isNew)) beep();
-      known.current = new Set(data.map((o) => o.id));
+      const arrived = (o) => known.current && o.status === ORDER_STATUS.NEW && known.current.get(o.id) !== ORDER_STATUS.NEW;
+      if (data.some(arrived)) beep();
+      known.current = new Map(data.map((o) => [o.id, o.status]));
       setOrders(data);
       setError('');
     } catch (e) {

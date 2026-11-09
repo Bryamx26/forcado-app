@@ -29,6 +29,31 @@ function resizeImage(file, max = 800) {
 
 const MAX_GROUPS = 10;
 
+const VAT_RATES = [6, 12, 21, 0];
+const VAT_FIELDS = [
+  { mode: 'sur_place', label: 'TVA sur place' },
+  { mode: 'emporter', label: 'TVA à emporter' },
+];
+
+// Taux de TVA (à faire confirmer par le comptable), gardés sur chaque ligne de commande.
+function VatEditor({ value, onChange }) {
+  return (
+    <div className="editor-grid">
+      {VAT_FIELDS.map(({ mode, label }) => (
+        <label key={mode} className="field">
+          {label}
+          <select value={value[mode]} onChange={(e) => onChange({ ...value, [mode]: e.target.value })}>
+            <option value="">Non renseignée</option>
+            {VAT_RATES.map((rate) => (
+              <option key={rate} value={rate}>{rate} %</option>
+            ))}
+          </select>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 // Tous les textes de l'article, dans l'ordre du formulaire, pour la section Traductions.
 function translationRows(form, set, setGroup) {
   return [
@@ -50,6 +75,7 @@ export default function ItemEditor({ item, categories, optionSets = [], category
     options: (item?.options || []).map(groupFormState),
     optionSetIds: item?.optionSetIds || [],
     allergens: allergenFormState(item),
+    vat: { sur_place: item?.vat?.sur_place ?? '', emporter: item?.vat?.emporter ?? '' },
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -160,6 +186,8 @@ export default function ItemEditor({ item, categories, optionSets = [], category
         </label>
 
         <AllergenEditor value={form.allergens} onChange={(allergens) => set({ allergens })} />
+
+        <VatEditor value={form.vat} onChange={(vat) => set({ vat })} />
 
         <h3 className="editor-title">Options proposées au client</h3>
         {optionSets.length > 0 && (

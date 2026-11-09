@@ -91,6 +91,13 @@ export default function App() {
         <Customer table={parseInt(table[1], 10)} />
       </LanguageProvider>
     );
+  } else if (path === '/emporter' && brand.takeaway?.enabled) {
+    document.title = `${brand.name} · À emporter`;
+    page = (
+      <LanguageProvider languages={brand.languages || ['fr']}>
+        <Customer />
+      </LanguageProvider>
+    );
   } else if (path === '/ecran') {
     document.title = `${brand.name} · Commandes prêtes`;
     page = <ReadyBoard />;

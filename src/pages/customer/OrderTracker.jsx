@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { api, euro } from '../../api.js';
 import { StatusBadge } from '../../components/ui.jsx';
 import { ORDER_STATUS } from '../../../shared/orderStatus.js';
-import { useT } from '../../i18n.jsx';
+import { useLanguage, useT } from '../../i18n.jsx';
+import { useBrand } from '../../brand.js';
+import { formatTime } from '../../time.js';
+import { ORDER_MODE } from '../../../shared/pickup.js';
 import { chime } from '../../sound.js';
 import { forgetOrder, readAcks, readMyOrders, saveAck } from './myOrders.js';
 
@@ -104,6 +107,23 @@ function useTrackedOrders(place, live) {
   return [orders, remove];
 }
 
+function OrderProgress({ order }) {
+  const t = useT();
+  const { lang } = useLanguage();
+  const { takeaway } = useBrand();
+  if (order.status === ORDER_STATUS.SCHEDULED) {
+    return <p className="small tracker-wait">{t('tracker.scheduled', { time: formatTime(order.pickupAt, takeaway.timeZone, lang) })}</p>;
+  }
+  const readyKey = order.mode === ORDER_MODE.TAKEAWAY ? 'tracker.readyCounter' : 'tracker.readyTable';
+  return (
+    <>
+      <Progress status={order.status} />
+      {order.waitMinutes != null && <p className="small tracker-wait">{t('tracker.wait', { minutes: order.waitMinutes })}</p>}
+      {order.status === ORDER_STATUS.READY && <p className="small tracker-ready">{t(readyKey)}</p>}
+    </>
+  );
+}
+
 function CancelledOrder({ order, onDismiss }) {
   const t = useT();
   return (
@@ -164,9 +184,7 @@ export default function OrderTracker({ place, live }) {
               <strong>{t('tracker.order', { number: o.number })}</strong>
             </div>
             {o.modifiedAt && acks[o.id] !== o.modifiedAt && <ModifiedNotice order={o} onAck={() => setAcks(saveAck(acks, o))} />}
-            <Progress status={o.status} />
-            {o.waitMinutes != null && <p className="small tracker-wait">{t('tracker.wait', { minutes: o.waitMinutes })}</p>}
-            {o.status === ORDER_STATUS.READY && <p className="small tracker-ready">{t('tracker.readyTable')}</p>}
+            <OrderProgress order={o} />
           </div>
         ),
       )}

@@ -3,6 +3,7 @@ import { useBrand } from '../../brand.js';
 import { StatusBadge } from '../../components/ui.jsx';
 import { ORDER_STATUS } from '../../../shared/orderStatus.js';
 import { URGENCY, minutesBetween, urgencyOf } from '../../../shared/kitchen.js';
+import { usePlaceLabel } from './place.js';
 
 function waitLabel(minutes, urgency) {
   if (urgency !== URGENCY.OK) return `Depuis ${minutes} min`;
@@ -31,14 +32,15 @@ function TicketLines({ lines }) {
 // Une commande prête n'est plus « en retard » : elle attend d'être servie.
 export default function OrderTicket({ order, now, showTotal = true, children }) {
   const { kitchen } = useBrand();
+  const placeLabel = usePlaceLabel();
   const minutes = minutesBetween(order.createdAt, now);
   const urgency = order.status === ORDER_STATUS.READY ? URGENCY.OK : urgencyOf(minutes, kitchen);
   return (
-    <article className={`ticket ticket-${urgency}`} aria-label={`Commande ${order.number}, table ${order.table}`}>
+    <article className={`ticket ticket-${urgency}`} aria-label={`Commande ${order.number}, ${placeLabel(order)}`}>
       <header className="ticket-head">
         <span className="ticket-number">#{order.number}</span>
         <span className="ticket-meta">
-          Table {order.table} · {waitLabel(minutes, urgency)}
+          {placeLabel(order)} · {waitLabel(minutes, urgency)}
         </span>
       </header>
       <StatusBadge status={order.status} comptoir />

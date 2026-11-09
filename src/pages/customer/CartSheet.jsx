@@ -30,7 +30,7 @@ function CartLine({ line, soldOut, onRemove }) {
 }
 
 // Panier : lignes chiffrées avec la carte actuelle, puis envoi de la commande.
-export default function CartSheet({ title, lines, total, soldOutIds, error, sending, onRemove, onSubmit, onClose, children }) {
+export default function CartSheet({ title, lines, total, soldOutIds, error, sending, canSubmit = true, onRemove, onSubmit, onClose, children }) {
   const brand = useBrand();
   const t = useT();
   return (
@@ -38,7 +38,7 @@ export default function CartSheet({ title, lines, total, soldOutIds, error, send
       title={title}
       onClose={onClose}
       footer={
-        <button type="button" className="btn btn-lg btn-block" disabled={!lines.length || sending} aria-busy={sending || undefined} onClick={onSubmit}>
+        <button type="button" className="btn btn-lg btn-block" disabled={!lines.length || sending || !canSubmit} aria-busy={sending || undefined} onClick={onSubmit}>
           {sending ? t('cart.sending') : t('cart.send', { total: euro(total) })}
         </button>
       }

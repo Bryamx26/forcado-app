@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, AuthError, euro } from '../../api.js';
 import { Alert, Modal } from '../../components/ui.jsx';
+import { usePlaceLabel } from './place.js';
 import { clampQty } from '../../../shared/orderStatus.js';
 import { defaultSelection, isSingleChoice, selectedChoiceNames, toggleChoice, unitPrice } from '../../../shared/options.js';
 
@@ -71,6 +72,7 @@ function AddLine({ menu, onAdd }) {
 
 // Modification d'une commande par l'équipe : quantités, retrait et ajout d'articles.
 export default function OrderEditor({ order, onClose, onSaved, onAuthError }) {
+  const placeLabel = usePlaceLabel();
   const [lines, setLines] = useState(() =>
     order.lines.map((l, i) => ({ key: `old-${i}`, keep: i, qty: l.qty, name: l.name, opts: l.options.map((o) => o.choice), unitPrice: l.unitPrice })),
   );
@@ -128,7 +130,7 @@ export default function OrderEditor({ order, onClose, onSaved, onAuthError }) {
         </>
       }
     >
-      <p className="muted small">Table {order.table}. Le client verra la commande modifiée et le nouveau total sur son téléphone.</p>
+      <p className="muted small">{placeLabel(order)}. Le client verra la commande modifiée et le nouveau total sur son téléphone.</p>
       <ul className="order-edit-lines">
         {lines.map((l) => (
           <li key={l.key}>

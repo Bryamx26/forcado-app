@@ -88,5 +88,25 @@ export const push = {
   subject: env.VAPID_SUBJECT || (brand.legal.email ? `mailto:${brand.legal.email}` : brand.website),
 };
 
+// À emporter et précommande. OPENING_HOURS : « lun-ven 08:00-19:00; sam 09:00-17:00 » (jours absents = fermé).
+export const takeaway = {
+  enabled: env.TAKEAWAY !== 'false',
+  openingHours: env.OPENING_HOURS || 'lun-dim 08:00-19:00',
+  timeZone: env.TIMEZONE || 'Europe/Brussels',
+  slotMin: positiveInt('PICKUP_SLOT_MIN', 15),
+  slotCapacity: positiveInt('PICKUP_SLOT_CAPACITY', 5),
+  // Délai minimum entre l'envoi et le premier créneau proposé.
+  leadMin: positiveInt('PICKUP_MIN_LEAD_MIN', 20),
+  // Une précommande entre en cuisine ce nombre de minutes avant l'heure de retrait.
+  prepLeadMin: positiveInt('PREP_LEAD_MIN', 20),
+  // Tant que le paiement en ligne n'existe pas, une précommande non retirée est une perte : on plafonne son montant.
+  preorderMaxTotal: positiveInt('PREORDER_MAX_TOTAL', 50),
+};
+
 // Ce que /api/config renvoie au navigateur (jamais la clé privée).
-export const publicConfig = { ...brand, kitchen, pushPublicKey: push.publicKey };
+export const publicConfig = {
+  ...brand,
+  kitchen,
+  pushPublicKey: push.publicKey,
+  takeaway: { enabled: takeaway.enabled, timeZone: takeaway.timeZone, preorderMaxTotal: takeaway.preorderMaxTotal },
+};

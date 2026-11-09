@@ -1,5 +1,7 @@
 // Statuts d'une commande, partagés par le navigateur et le serveur.
 export const ORDER_STATUS = Object.freeze({
+  // Précommande dont l'heure de retrait est encore loin : elle passe en « nouvelle » au moment de la préparer.
+  SCHEDULED: 'planifiee',
   NEW: 'nouvelle',
   PREPARING: 'en_cours',
   READY: 'prete',
@@ -15,6 +17,7 @@ export const isFinal = (status) => FINAL_STATUSES.includes(status);
 
 // Libellés du comptoir (en français) ; le client a les siens dans shared/i18n.
 export const STATUS_LABELS = {
+  [ORDER_STATUS.SCHEDULED]: 'Planifiée',
   [ORDER_STATUS.NEW]: 'Reçue',
   [ORDER_STATUS.PREPARING]: 'En préparation',
   [ORDER_STATUS.READY]: 'Prête',

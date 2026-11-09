@@ -5,6 +5,8 @@ import { customerMenu } from '../availability.js';
 import { boardNumbers, waitTimes } from '../queue.js';
 import { orderStatusChanged } from '../orderEvents.js';
 import { cleanSubscription, pushEnabled } from '../push.js';
+import { availableSlots, promoteDueOrders, takeawayFields } from '../takeaway.js';
+import { ORDER_MODE } from '../../shared/pickup.js';
 import { store } from '../store.js';
 import { notify } from '../events.js';
 import { requireStaff } from '../auth.js';
@@ -34,11 +36,20 @@ function parseTable(raw) {
   return table;
 }
 
+// Sur place (numéro de table) ou à emporter (prénom et créneau éventuel).
+async function placementOf(body, total) {
+  if (body?.mode === ORDER_MODE.TAKEAWAY) return takeawayFields(body, total);
+  return { mode: ORDER_MODE.DINE_IN, table: parseTable(body?.table) };
+}
+
 // Ce que le client voit de sa commande : le statut et le détail, rien de plus.
-const publicView = ({ id, number, table, status, total, lines, modifiedAt }, waitMinutes) => ({
+const publicView = ({ id, number, table, mode, customerName, pickupAt, status, total, lines, modifiedAt }, waitMinutes) => ({
   id,
   number,
   table,
+  mode,
+  customerName,
+  pickupAt,
   status,
   total,
   modifiedAt,
@@ -71,13 +82,22 @@ orderRoutes.post(
 
 orderRoutes.get(
   '/board',
-  handle(async (_req, res) => noStore(res).json(await boardNumbers())),
+  handle(async (_req, res) => {
+    await promoteDueOrders();
+    noStore(res).json(await boardNumbers());
+  }),
+);
+
+orderRoutes.get(
+  '/pickup-slots',
+  handle(async (_req, res) => noStore(res).json(await availableSlots())),
 );
 
 orderRoutes.get(
   '/',
   requireStaff,
   handle(async (_req, res) => {
+    await promoteDueOrders();
     const since = Date.now() - RECENT_MS;
     const orders = (await store.list()).filter((o) => new Date(o.createdAt).getTime() >= since);
     noStore(res).json(orders);
@@ -87,10 +107,11 @@ orderRoutes.get(
 orderRoutes.post(
   '/',
   handle(async (req, res) => {
-    const table = parseTable(req.body?.table);
-    const lines = buildLines(req.body?.lines, await customerMenu(DEFAULT_LANGUAGE));
+    const mode = req.body?.mode === ORDER_MODE.TAKEAWAY ? ORDER_MODE.TAKEAWAY : ORDER_MODE.DINE_IN;
+    const lines = buildLines(req.body?.lines, await customerMenu(DEFAULT_LANGUAGE), mode);
+    const placement = await placementOf(req.body, orderTotal(lines));
     const lang = isSupported(req.body?.lang) ? req.body.lang : DEFAULT_LANGUAGE;
-    const order = await store.create(newOrder({ table, lines, lang }));
+    const order = await store.create(newOrder({ placement, lines, lang }));
     await notify('orders');
     res.status(201).json(order);
   }),
