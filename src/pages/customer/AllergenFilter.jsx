@@ -33,21 +33,21 @@ export default function AllergenFilter({ avoided, onChange, hiddenCount }) {
   return (
     <div className="allergen-filter">
       <button type="button" className={`btn btn-sm ${avoided.length ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => setOpen(true)}>
-        <span aria-hidden="true">⚠</span> {avoided.length ? `Allergies (${avoided.length})` : 'Allergies'}
+        <span aria-hidden="true">⚠</span> {avoided.length ? t('allergens.filterCount', { count: avoided.length }) : t('allergens.filter')}
       </button>
-      {hiddenCount > 0 && <span className="small muted">{hiddenCount} article(s) masqué(s)</span>}
+      {hiddenCount > 0 && <span className="small muted">{t('allergens.hidden', { count: hiddenCount })}</span>}
       {open && (
         <Modal
-          title="J'évite"
+          title={t('allergens.avoid')}
           onClose={() => setOpen(false)}
           footer={
             <>
-              {avoided.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => onChange([])}>Tout effacer</button>}
-              <button type="button" className="btn btn-grow" onClick={() => setOpen(false)}>Voir la carte</button>
+              {avoided.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => onChange([])}>{t('allergens.clear')}</button>}
+              <button type="button" className="btn btn-grow" onClick={() => setOpen(false)}>{t('allergens.showMenu')}</button>
             </>
           }
         >
-          <p className="small muted">Les articles qui contiennent ces allergènes sont masqués. En cas d'allergie sévère, parlez-en au comptoir.</p>
+          <p className="small muted">{t('allergens.avoidHelp')}</p>
           <div className="allergen-grid">
             {ALLERGENS.map(({ code, icon }) => (
               <label key={code} className={`opt ${avoided.includes(code) ? 'opt-on' : ''}`}>

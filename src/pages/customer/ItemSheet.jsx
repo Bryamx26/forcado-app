@@ -4,15 +4,17 @@ import { Modal } from '../../components/ui.jsx';
 import { MAX_LINE_QTY, MAX_NOTE_LENGTH } from '../../../shared/orderStatus.js';
 import { defaultSelection, isSingleChoice, toggleChoice, unitPrice } from '../../../shared/options.js';
 import ProductVisual from './ProductVisual.jsx';
+import { useT } from '../../i18n.jsx';
 import AllergenInfo from './AllergenInfo.jsx';
 
 function OptionGroup({ group, selected, onToggle }) {
+  const t = useT();
   const single = isSingleChoice(group);
   return (
     <fieldset className="opt-group">
       <legend>
         {group.name}
-        <span className="opt-hint">{single ? 'Un choix' : 'Facultatif'}</span>
+        <span className="opt-hint">{t(single ? 'item.oneChoice' : 'common.optional')}</span>
       </legend>
       {group.choices.map((choice) => {
         const checked = (selected[group.id] || []).includes(choice.id);
@@ -29,17 +31,19 @@ function OptionGroup({ group, selected, onToggle }) {
 }
 
 function QuantityPicker({ qty, onChange }) {
+  const t = useT();
   return (
-    <div className="qty" role="group" aria-label="Quantité">
-      <button type="button" onClick={() => onChange(Math.max(1, qty - 1))} aria-label="Retirer un">−</button>
+    <div className="qty" role="group" aria-label={t('item.quantity')}>
+      <button type="button" onClick={() => onChange(Math.max(1, qty - 1))} aria-label={t('item.less')}>−</button>
       <span aria-live="polite">{qty}</span>
-      <button type="button" onClick={() => onChange(Math.min(MAX_LINE_QTY, qty + 1))} aria-label="Ajouter un">+</button>
+      <button type="button" onClick={() => onChange(Math.min(MAX_LINE_QTY, qty + 1))} aria-label={t('item.more')}>+</button>
     </div>
   );
 }
 
 // Fiche d'un article : options, quantité et remarque, puis ajout au panier.
 export default function ItemSheet({ item, onClose, onAdd }) {
+  const t = useT();
   const [selected, setSelected] = useState(() => defaultSelection(item));
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState('');
@@ -59,7 +63,7 @@ export default function ItemSheet({ item, onClose, onAdd }) {
             className="btn btn-lg btn-grow"
             onClick={() => onAdd({ key: crypto.randomUUID(), item, options: selected, qty, note })}
           >
-            Ajouter · {euro(price * qty)}
+            {t('item.addFor', { price: euro(price * qty) })}
           </button>
         </>
       }
@@ -70,8 +74,8 @@ export default function ItemSheet({ item, onClose, onAdd }) {
       ))}
       <AllergenInfo item={item} />
       <label className="field note">
-        Remarque (allergie, etc.)
-        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={MAX_NOTE_LENGTH} placeholder="Facultatif" />
+        {t('item.note')}
+        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={MAX_NOTE_LENGTH} placeholder={t('common.optional')} />
       </label>
     </Modal>
   );

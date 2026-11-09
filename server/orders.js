@@ -2,12 +2,13 @@
 import { ORDER_STATUS, isFinal, MAX_LINES, MAX_NOTE_LENGTH, STATUS_LABELS, clampQty } from '../shared/orderStatus.js';
 import { roundMoney } from '../shared/money.js';
 
-// code : identifiant stable de l'erreur, que l'écran du client traduit dans sa langue.
+// code : identifiant stable de l'erreur, que l'écran du client traduit dans sa langue (avec vars si besoin).
 export class OrderError extends Error {
-  constructor(message, { status = 400, code = 'invalid_order' } = {}) {
+  constructor(message, { status = 400, code = 'invalid_order', vars } = {}) {
     super(message);
     this.status = status;
     this.code = code;
+    this.vars = vars;
   }
 }
 
@@ -93,11 +94,12 @@ export function assertTransition(order, nextStatus, seenStatus) {
   }
 }
 
-export function newOrder({ table, lines, now = new Date() }) {
+export function newOrder({ table, lines, lang, now = new Date() }) {
   const at = now.toISOString();
   return {
     id: crypto.randomUUID(),
     table,
+    lang,
     lines,
     total: orderTotal(lines),
     status: ORDER_STATUS.NEW,

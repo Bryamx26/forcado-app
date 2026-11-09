@@ -49,7 +49,7 @@ export function rateLimit(name, limit, windowSec, message = 'Trop de requêtes. 
       const count = await hit(`${name}:${keyOf(req)}`, windowSec);
       if (count > limit) {
         res.set('Retry-After', String(windowSec));
-        return res.status(429).json({ error: message });
+        return res.status(429).json({ error: message, code: 'rate_limited' });
       }
       next();
     } catch (e) {

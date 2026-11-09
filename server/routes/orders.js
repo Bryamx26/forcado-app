@@ -6,6 +6,7 @@ import { notify } from '../events.js';
 import { requireStaff } from '../auth.js';
 import { handle, noStore } from '../http.js';
 import { ORDER_STATUSES } from '../../shared/orderStatus.js';
+import { DEFAULT_LANGUAGE, isSupported } from '../../shared/i18n/index.js';
 import { OrderError, buildLines, editLines, newOrder, orderTotal, assertEditable, assertTransition } from '../orders.js';
 
 // Nombre de tables de l'établissement : au-delà, la commande est refusée.
@@ -36,6 +37,7 @@ async function assertAvailable(lines) {
     throw new OrderError(`Désolé, « ${unavailable.name} » vient d'être épuisé. Retirez-le du panier.`, {
       status: 409,
       code: 'item_sold_out',
+      vars: { itemId: unavailable.itemId },
     });
   }
 }
@@ -76,7 +78,8 @@ orderRoutes.post(
     const table = parseTable(req.body?.table);
     const lines = buildLines(req.body?.lines, await getMenu());
     await assertAvailable(lines);
-    const order = await store.create(newOrder({ table, lines }));
+    const lang = isSupported(req.body?.lang) ? req.body.lang : DEFAULT_LANGUAGE;
+    const order = await store.create(newOrder({ table, lines, lang }));
     await notify('orders');
     res.status(201).json(order);
   }),

@@ -9,6 +9,7 @@ import Offer from './pages/site/Offer.jsx';
 import { LegalNotice, Privacy } from './pages/site/Legal.jsx';
 import { publicPages } from './seo.js';
 import { ToastProvider } from './components/ui.jsx';
+import { LanguageProvider } from './i18n.jsx';
 
 const SITE_PAGES = {
   '/a-propos': About,
@@ -84,7 +85,11 @@ export default function App() {
   let page;
   if (table) {
     document.title = `${brand.name} · Table ${table[1]}`;
-    page = <Customer table={parseInt(table[1], 10)} />;
+    page = (
+      <LanguageProvider languages={brand.languages || ['fr']}>
+        <Customer table={parseInt(table[1], 10)} />
+      </LanguageProvider>
+    );
   } else if (path.startsWith('/comptoir')) {
     document.title = `${brand.name} · Espace employés`;
     page = <Staff />;

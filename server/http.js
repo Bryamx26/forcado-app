@@ -9,7 +9,7 @@ export const handle = (fn) => async (req, res, next) => {
   try {
     await fn(req, res);
   } catch (e) {
-    if (isBusinessError(e)) return res.status(e.status).json({ error: e.message, code: e.code });
+    if (isBusinessError(e)) return res.status(e.status).json({ error: e.message, code: e.code, vars: e.vars });
     next(e);
   }
 };

@@ -1,5 +1,15 @@
 export class AuthError extends Error {}
 
+// Erreur renvoyée par le serveur : code stable (traduit côté client) et variables éventuelles.
+export class ApiError extends Error {
+  constructor(message, { code, vars, status } = {}) {
+    super(message);
+    this.code = code;
+    this.vars = vars;
+    this.status = status;
+  }
+}
+
 async function request(url, options = {}) {
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
@@ -9,13 +19,14 @@ async function request(url, options = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) throw new AuthError(data.error || 'Connexion requise');
-  if (!res.ok) throw new Error(data.error || 'Erreur réseau');
+  if (!res.ok) throw new ApiError(data.error || 'Erreur réseau', { code: data.code, vars: data.vars, status: res.status });
   return data;
 }
 
 export const api = {
   config: () => request('/api/config'),
-  menu: () => request('/api/menu'),
+  menu: (lang = 'fr') => request(`/api/menu?lang=${lang}`),
+  adminMenu: () => request('/api/admin/menu'),
   track: (ids) => request(`/api/orders/track?ids=${ids.join(',')}`),
   orders: () => request('/api/orders'),
   createOrder: (order) => request('/api/orders', { method: 'POST', body: order }),

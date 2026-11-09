@@ -1,6 +1,14 @@
 // Identité de l'établissement. Pour vendre l'app à un autre commerce, il suffit de changer ces valeurs
 // (ou les variables d'environnement correspondantes sur Vercel), puis composer la carte depuis l'espace employés (onglet Carte).
+import { SUPPORTED_LANGUAGES } from '../shared/i18n/index.js';
+
 const env = process.env;
+
+// Langues proposées aux clients (BRAND_LANGUAGES=fr,nl,en,pt). Le comptoir reste en français.
+const languages = String(env.BRAND_LANGUAGES || SUPPORTED_LANGUAGES.join(','))
+  .split(',')
+  .map((lang) => lang.trim().toLowerCase())
+  .filter((lang) => SUPPORTED_LANGUAGES.includes(lang));
 
 export const brand = {
   name: env.BRAND_NAME || 'Forcado',
@@ -18,6 +26,7 @@ export const brand = {
   logo: env.BRAND_LOGO || '', // ex. /produits/logo.svg ; sans logo, le nom s'affiche en Fraunces
   currency: env.BRAND_CURRENCY || 'EUR',
   locale: env.BRAND_LOCALE || 'fr-BE',
+  languages: languages.length ? languages : ['fr'],
   paymentNote: env.BRAND_PAYMENT_NOTE || 'Paiement à la table ou au comptoir.',
   website: env.BRAND_WEBSITE || 'https://forcado.be',
   city: env.BRAND_CITY || 'Bruxelles',

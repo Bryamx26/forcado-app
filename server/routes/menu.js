@@ -1,6 +1,7 @@
 // Carte publique, photos et disponibilité des articles.
 import { Router } from 'express';
-import { getMenu, findItem, readImage } from '../catalog.js';
+import { getMenu, getRawMenu, findItem, readImage } from '../catalog.js';
+import { DEFAULT_LANGUAGE, isSupported } from '../../shared/i18n/index.js';
 import { store } from '../store.js';
 import { notify } from '../events.js';
 import { requireStaff } from '../auth.js';
@@ -8,16 +9,28 @@ import { handle, noStore } from '../http.js';
 
 export const menuRoutes = Router();
 
+async function withAvailability(menu) {
+  const soldOut = new Set(await store.soldOut());
+  return menu.map((cat) => ({
+    ...cat,
+    items: cat.items.map((item) => ({ ...item, soldOut: soldOut.has(item.id) })),
+  }));
+}
+
+// ?lang=nl : la carte traduite, prête à afficher.
 menuRoutes.get(
   '/menu',
-  handle(async (_req, res) => {
-    const soldOut = new Set(await store.soldOut());
-    const menu = (await getMenu()).map((cat) => ({
-      ...cat,
-      items: cat.items.map((item) => ({ ...item, soldOut: soldOut.has(item.id) })),
-    }));
-    noStore(res).json(menu);
+  handle(async (req, res) => {
+    const lang = isSupported(req.query.lang) ? req.query.lang : DEFAULT_LANGUAGE;
+    noStore(res).json(await withAvailability(await getMenu(lang)));
   }),
+);
+
+// Carte avec toutes ses traductions, pour l'onglet Carte des employés.
+menuRoutes.get(
+  '/admin/menu',
+  requireStaff,
+  handle(async (_req, res) => noStore(res).json(await withAvailability(await getRawMenu()))),
 );
 
 menuRoutes.put(

@@ -16,17 +16,18 @@ function AllergenChips({ codes }) {
 
 // Allergènes d'un article, toujours avec leur libellé (jamais seulement une icône).
 export default function AllergenInfo({ item }) {
+  const t = useT();
   if (!Array.isArray(item.allergens)) {
-    return <p className="allergen-unknown small">Allergènes non renseignés : demandez au comptoir.</p>;
+    return <p className="allergen-unknown small">{t('allergens.unknown')}</p>;
   }
   const traces = item.mayContain || [];
   return (
-    <section className="allergens" aria-label="Allergènes">
-      <h3 className="allergens-title">Allergènes</h3>
-      {item.allergens.length ? <AllergenChips codes={item.allergens} /> : <p className="small muted">Aucun des 14 allergènes réglementaires.</p>}
+    <section className="allergens" aria-label={t('allergens.title')}>
+      <h3 className="allergens-title">{t('allergens.title')}</h3>
+      {item.allergens.length ? <AllergenChips codes={item.allergens} /> : <p className="small muted">{t('allergens.none')}</p>}
       {traces.length > 0 && (
         <>
-          <h4 className="allergens-subtitle">Peut contenir des traces de</h4>
+          <h4 className="allergens-subtitle">{t('allergens.traces')}</h4>
           <AllergenChips codes={traces} />
         </>
       )}

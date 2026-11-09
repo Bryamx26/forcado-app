@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, euro } from '../../api.js';
 import { StatusBadge } from '../../components/ui.jsx';
-import { ORDER_STATUS, STATUS_LABELS } from '../../../shared/orderStatus.js';
+import { ORDER_STATUS } from '../../../shared/orderStatus.js';
+import { useT } from '../../i18n.jsx';
 import { forgetOrder, readAcks, readMyOrders, saveAck } from './myOrders.js';
 
 const POLL_MS = 20000;
@@ -10,6 +11,7 @@ const STEP_ICONS = { [ORDER_STATUS.NEW]: '●', [ORDER_STATUS.PREPARING]: '◐',
 
 // Suivi en trois étapes : l'étape courante porte un libellé et une icône, jamais seulement une couleur.
 function Progress({ status }) {
+  const t = useT();
   const current = STEPS.indexOf(status);
   const stepClass = (i, step) => (i < current ? 'done' : i === current ? `current step-${step}` : '');
   return (
@@ -17,7 +19,7 @@ function Progress({ status }) {
       {STEPS.map((step, i) => (
         <li key={step} className={stepClass(i, step)} aria-current={i === current ? 'step' : undefined}>
           <span className="progress-dot" aria-hidden="true">{i <= current ? STEP_ICONS[step] : ''}</span>
-          <span>{STATUS_LABELS[step]}</span>
+          <span>{t(`status.${step}`)}</span>
         </li>
       ))}
     </ol>
@@ -82,22 +84,24 @@ function useTrackedOrders(place, live) {
 }
 
 function CancelledOrder({ order, onDismiss }) {
+  const t = useT();
   return (
     <div className="tracker-order tracker-cancelled" role="alert">
       <div className="tracker-head">
-        <strong>Commande n° {order.number}</strong>
-        <StatusBadge status={ORDER_STATUS.CANCELLED} />
+        <strong>{t('tracker.order', { number: order.number })}</strong>
+        <StatusBadge status={ORDER_STATUS.CANCELLED} label={t('status.annulee')} />
       </div>
-      <p className="small">Votre commande a été annulée par l'équipe. Pour toute question, adressez-vous au comptoir.</p>
-      <button type="button" className="btn btn-ghost btn-sm" onClick={onDismiss}>J'ai compris</button>
+      <p className="small">{t('tracker.cancelled')}</p>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onDismiss}>{t('tracker.understood')}</button>
     </div>
   );
 }
 
 function ModifiedNotice({ order, onAck }) {
+  const t = useT();
   return (
     <div className="tracker-modified" role="alert">
-      <strong>Commande modifiée par l'équipe</strong>
+      <strong>{t('tracker.modified')}</strong>
       <ul className="small">
         {order.lines.map((l, i) => (
           <li key={i}>
@@ -107,9 +111,9 @@ function ModifiedNotice({ order, onAck }) {
         ))}
       </ul>
       <p className="small">
-        Nouveau total : <strong>{euro(order.total)}</strong>
+        {t('tracker.newTotal')} <strong>{euro(order.total)}</strong>
       </p>
-      <button type="button" className="btn btn-ghost btn-sm" onClick={onAck}>OK</button>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onAck}>{t('common.ok')}</button>
     </div>
   );
 }
@@ -117,6 +121,7 @@ function ModifiedNotice({ order, onAck }) {
 export default function OrderTracker({ place, live }) {
   const [orders, removeOrder] = useTrackedOrders(place, live);
   const [acks, setAcks] = useState(readAcks);
+  const t = useT();
 
   // Le client a lu l'avis d'annulation : la commande n'est plus suivie sur cet appareil.
   const dismiss = (id) => {
@@ -127,18 +132,18 @@ export default function OrderTracker({ place, live }) {
   if (!orders.length) return null;
   return (
     <section className="tracker" aria-live="polite">
-      <h2>Suivi de vos commandes</h2>
+      <h2>{t('tracker.title')}</h2>
       {orders.map((o) =>
         o.status === ORDER_STATUS.CANCELLED ? (
           <CancelledOrder key={o.id} order={o} onDismiss={() => dismiss(o.id)} />
         ) : (
           <div key={o.id} className="tracker-order">
             <div className="tracker-head">
-              <strong>Commande n° {o.number}</strong>
+              <strong>{t('tracker.order', { number: o.number })}</strong>
             </div>
             {o.modifiedAt && acks[o.id] !== o.modifiedAt && <ModifiedNotice order={o} onAck={() => setAcks(saveAck(acks, o))} />}
             <Progress status={o.status} />
-            {o.status === ORDER_STATUS.READY && <p className="small tracker-ready">Votre commande arrive à votre table.</p>}
+            {o.status === ORDER_STATUS.READY && <p className="small tracker-ready">{t('tracker.readyTable')}</p>}
           </div>
         ),
       )}

@@ -11,6 +11,7 @@ export const defaultBrand = {
   logo: '',
   currency: 'EUR',
   locale: 'fr-BE',
+  languages: ['fr'],
   paymentNote: 'Paiement à la table ou au comptoir.',
   website: '',
   description: '',

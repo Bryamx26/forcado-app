@@ -8,6 +8,7 @@ import { hasRedis, redisClient } from './redis.js';
 import { defaultMenu } from './menu.js';
 import { roundMoney } from '../shared/money.js';
 import { ALLERGEN_CODES } from '../shared/allergens.js';
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, localize } from '../shared/i18n/index.js';
 
 
 const MENU_KEY = 'forcado:menu';
@@ -80,7 +81,8 @@ export class CatalogError extends Error {
 
 const newId = (prefix) => `${prefix}-${crypto.randomBytes(4).toString('hex')}`;
 
-export async function getMenu() {
+// Carte telle qu'enregistrée : les textes sont des objets { fr, nl, en, pt } (ou des chaînes pour une ancienne carte).
+export async function getRawMenu() {
   const menu = await backend.readMenu();
   if (menu) return menu;
   const seeded = structuredClone(defaultMenu);
@@ -88,8 +90,34 @@ export async function getMenu() {
   return seeded;
 }
 
+const localizeOptions = (options, lang) =>
+  options.map((group) => ({
+    ...group,
+    name: localize(group.name, lang),
+    choices: group.choices.map((choice) => ({ ...choice, name: localize(choice.name, lang) })),
+  }));
+
+// Carte dans une langue : chaque texte devient une simple chaîne, avec repli sur le français.
+export function localizeMenu(menu, lang) {
+  return menu.map((cat) => ({
+    ...cat,
+    name: localize(cat.name, lang),
+    items: cat.items.map((item) => ({
+      ...item,
+      name: localize(item.name, lang),
+      description: localize(item.description, lang),
+      options: localizeOptions(item.options, lang),
+    })),
+  }));
+}
+
+// Par défaut en français : c'est la langue des commandes au comptoir.
+export async function getMenu(lang = DEFAULT_LANGUAGE) {
+  return localizeMenu(await getRawMenu(), lang);
+}
+
 export async function findItem(id) {
-  for (const cat of await getMenu()) {
+  for (const cat of await getRawMenu()) {
     const item = cat.items.find((i) => i.id === id);
     if (item) return item;
   }
@@ -105,6 +133,17 @@ function text(value, label, max, { required = false } = {}) {
   return v;
 }
 
+// Texte traduisible : une chaîne (en français) ou { fr, nl, en, pt }. Le français est la langue de référence.
+function localizedText(value, label, max, { required = false } = {}) {
+  const source = typeof value === 'object' && value !== null ? value : { [DEFAULT_LANGUAGE]: value };
+  const result = {};
+  for (const lang of SUPPORTED_LANGUAGES) {
+    const translated = text(source[lang], `${label} (${lang.toUpperCase()})`, max, { required: required && lang === DEFAULT_LANGUAGE });
+    if (translated) result[lang] = translated;
+  }
+  return result;
+}
+
 function price(value, label, min, max) {
   const n = Number(String(value ?? '').replace(',', '.'));
   if (!Number.isFinite(n) || n < min || n > max) throw new CatalogError(`${label} invalide`);
@@ -115,11 +154,12 @@ function cleanOptions(raw) {
   if (!Array.isArray(raw)) return [];
   if (raw.length > 10) throw new CatalogError('10 groupes d\'options maximum');
   return raw.map((g, gi) => {
-    const name = text(g?.name, `Nom du groupe d'options n° ${gi + 1}`, 40, { required: true });
+    const name = localizedText(g?.name, `Nom du groupe d'options n° ${gi + 1}`, 40, { required: true });
     const type = g?.type === 'multi' ? 'multi' : 'single';
     const choices = Array.isArray(g?.choices) ? g.choices : [];
-    if (!choices.length) throw new CatalogError(`Le groupe « ${name} » doit avoir au moins un choix`);
-    if (choices.length > 20) throw new CatalogError(`Le groupe « ${name} » : 20 choix maximum`);
+    const groupLabel = localize(name, DEFAULT_LANGUAGE);
+    if (!choices.length) throw new CatalogError(`Le groupe « ${groupLabel} » doit avoir au moins un choix`);
+    if (choices.length > 20) throw new CatalogError(`Le groupe « ${groupLabel} » : 20 choix maximum`);
     const ids = new Set();
     return {
       id: g?.id && /^[\w-]{1,40}$/.test(g.id) ? g.id : newId('opt'),
@@ -131,8 +171,8 @@ function cleanOptions(raw) {
         ids.add(id);
         return {
           id,
-          name: text(c?.name, `Choix n° ${ci + 1} du groupe « ${name} »`, 40, { required: true }),
-          price: price(c?.price ?? 0, `Supplément de « ${c?.name || ci + 1} »`, -100, 100),
+          name: localizedText(c?.name, `Choix n° ${ci + 1} du groupe « ${groupLabel} »`, 40, { required: true }),
+          price: price(c?.price ?? 0, `Supplément du choix n° ${ci + 1}`, -100, 100),
         };
       }),
     };
@@ -148,6 +188,8 @@ function cleanAllergens(raw, label, { nullable = false } = {}) {
   return ALLERGEN_CODES.filter((code) => raw.includes(code));
 }
 
+const categoryName = (value) => localizedText(value, 'Le nom de la catégorie', 40, { required: true });
+
 function cleanImage(value) {
   if (value == null || value === '') return null;
   const v = String(value);
@@ -157,8 +199,8 @@ function cleanImage(value) {
 
 function cleanItem(raw) {
   return {
-    name: text(raw?.name, 'Le nom', 60, { required: true }),
-    description: text(raw?.description, 'La description', 200),
+    name: localizedText(raw?.name, 'Le nom', 60, { required: true }),
+    description: localizedText(raw?.description, 'La description', 200),
     price: price(raw?.price, 'Prix', 0, 1000),
     emoji: text(raw?.emoji, "L'emoji", 8) || '🍽️',
     image: cleanImage(raw?.image),
@@ -171,7 +213,7 @@ function cleanItem(raw) {
 // --- Modifications ---------------------------------------------------------
 
 async function mutate(fn) {
-  const menu = await getMenu();
+  const menu = await getRawMenu();
   const result = await fn(menu);
   await backend.writeMenu(menu);
   return result;
@@ -208,7 +250,7 @@ async function dropImage(url, menu) {
 export const catalog = {
   addCategory: (raw) =>
     mutate((menu) => {
-      const cat = { id: newId('cat'), name: text(raw?.name, 'Le nom de la catégorie', 40, { required: true }), items: [] };
+      const cat = { id: newId('cat'), name: categoryName(raw?.name), items: [] };
       menu.push(cat);
       return cat;
     }),
@@ -216,7 +258,7 @@ export const catalog = {
   renameCategory: (id, raw) =>
     mutate((menu) => {
       const cat = category(menu, id);
-      cat.name = text(raw?.name, 'Le nom de la catégorie', 40, { required: true });
+      cat.name = categoryName(raw?.name);
       return cat;
     }),
 

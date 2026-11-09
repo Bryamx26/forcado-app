@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { api, AuthError, euro } from '../../api.js';
 import { Alert, Modal } from '../../components/ui.jsx';
 import AllergenEditor, { allergenFormState, allergenPayload } from './AllergenEditor.jsx';
+import { TranslationsEditor, frenchText, toLocalized } from './translations.jsx';
 
 // Réduit la photo dans le navigateur (800 px max, JPEG) avant l'envoi : rapide et léger pour la base.
 function resizeImage(file, max = 800) {
@@ -25,18 +26,35 @@ function resizeImage(file, max = 800) {
   });
 }
 
-const emptyGroup = () => ({ name: '', type: 'single', required: true, choices: [{ name: '', price: 0 }] });
+const emptyChoice = () => ({ name: { fr: '' }, price: 0 });
+const emptyGroup = () => ({ name: { fr: '' }, type: 'single', required: true, choices: [emptyChoice()] });
+
+// Les textes du formulaire sont tous au format { fr, nl, … }.
+const localizedOptions = (options = []) =>
+  options.map((g) => ({ ...g, name: toLocalized(g.name), choices: g.choices.map((c) => ({ ...c, name: toLocalized(c.name) })) }));
+
+// Tous les textes de l'article, dans l'ordre du formulaire, pour la section Traductions.
+function translationRows(form, set, setGroup, setChoice) {
+  return [
+    { id: 'name', value: form.name, max: 60, onChange: (name) => set({ name }) },
+    { id: 'description', value: form.description, max: 200, onChange: (description) => set({ description }) },
+    ...form.options.flatMap((g, gi) => [
+      { id: `g${gi}`, value: g.name, max: 40, onChange: (name) => setGroup(gi, { name }) },
+      ...g.choices.map((c, ci) => ({ id: `g${gi}c${ci}`, value: c.name, max: 40, onChange: (name) => setChoice(gi, ci, { name }) })),
+    ]),
+  ];
+}
 
 export default function ItemEditor({ item, categories, categoryId, onClose, onSaved, onAuthError }) {
   const isNew = !item;
   const [form, setForm] = useState(() => ({
     categoryId: categoryId || categories[0]?.id,
-    name: item?.name || '',
-    description: item?.description || '',
+    name: toLocalized(item?.name),
+    description: toLocalized(item?.description),
     price: item ? String(item.price).replace('.', ',') : '',
     emoji: item?.emoji || '🥐',
     image: item?.image || null,
-    options: structuredClone(item?.options || []),
+    options: localizedOptions(item?.options),
     allergens: allergenFormState(item),
   }));
   const [error, setError] = useState('');
@@ -97,7 +115,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
     <Modal
       as="form"
       wide
-      title={isNew ? 'Nouvel article' : `Modifier « ${item.name} »`}
+      title={isNew ? 'Nouvel article' : `Modifier « ${frenchText(item.name)} »`}
       onClose={onClose}
       onSubmit={save}
       footer={
@@ -127,7 +145,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
         <div className="editor-grid">
           <label className="field">
             Nom
-            <input value={form.name} onChange={(e) => set({ name: e.target.value })} maxLength={60} required />
+            <input value={form.name.fr || ''} onChange={(e) => set({ name: { ...form.name, fr: e.target.value } })} maxLength={60} required />
           </label>
           <label className="field">
             Prix (€)
@@ -137,7 +155,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
             Catégorie
             <select value={form.categoryId} onChange={(e) => set({ categoryId: e.target.value })}>
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{frenchText(c.name)}</option>
               ))}
             </select>
           </label>
@@ -148,7 +166,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
         </div>
         <label className="field">
           Description
-          <textarea value={form.description} onChange={(e) => set({ description: e.target.value })} maxLength={200} rows={2} />
+          <textarea value={form.description.fr || ''} onChange={(e) => set({ description: { ...form.description, fr: e.target.value } })} maxLength={200} rows={2} />
         </label>
 
         <AllergenEditor value={form.allergens} onChange={(allergens) => set({ allergens })} />
@@ -160,8 +178,8 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
             <div className="editor-group-head">
               <input
                 className="editor-input"
-                value={g.name}
-                onChange={(e) => setGroup(gi, { name: e.target.value })}
+                value={g.name.fr || ''}
+                onChange={(e) => setGroup(gi, { name: { ...g.name, fr: e.target.value } })}
                 aria-label="Nom du groupe d'options"
                 placeholder="Nom du groupe (ex. Lait, Taille)"
                 maxLength={40}
@@ -179,8 +197,8 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
               <div key={ci} className="editor-choice">
                 <input
                   className="editor-input"
-                  value={c.name}
-                  onChange={(e) => setChoice(gi, ci, { name: e.target.value })}
+                  value={c.name.fr || ''}
+                  onChange={(e) => setChoice(gi, ci, { name: { ...c.name, fr: e.target.value } })}
                   aria-label="Nom du choix"
                   placeholder="Choix (ex. Avoine)"
                   maxLength={40}
@@ -205,7 +223,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
                 </button>
               </div>
             ))}
-            <button type="button" className="link small" onClick={() => setGroup(gi, { choices: [...g.choices, { name: '', price: 0 }] })}>
+            <button type="button" className="link small" onClick={() => setGroup(gi, { choices: [...g.choices, emptyChoice()] })}>
               + Ajouter un choix
             </button>
           </fieldset>
@@ -216,6 +234,8 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
           </button>
         )}
         <p className="muted small">Le supplément s'ajoute au prix de base ({euro(0.5)} par exemple). Laissez 0 si le choix est gratuit.</p>
+
+        <TranslationsEditor rows={translationRows(form, set, setGroup, setChoice)} />
 
         {error && <Alert>{error}</Alert>}
       </div>

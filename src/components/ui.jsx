@@ -16,10 +16,11 @@ export function Logo({ size = 'md', as: Tag = 'div', ...props }) {
 // Statut d'une commande : toujours une couleur, une icône et un libellé.
 const STATUS_ICONS = { nouvelle: '●', en_cours: '◐', prete: '✓', servie: '✓', annulee: '×' };
 
-export function StatusBadge({ status, comptoir = false }) {
+// label : libellé traduit (écran client) ; par défaut, celui du comptoir.
+export function StatusBadge({ status, comptoir = false, label = STATUS_LABELS[status] }) {
   return (
     <span className={`status status-${status} ${comptoir ? 'status-comptoir' : ''}`}>
-      <span aria-hidden="true">{STATUS_ICONS[status]}</span> {STATUS_LABELS[status]}
+      <span aria-hidden="true">{STATUS_ICONS[status]}</span> {label}
     </span>
   );
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { api, euro } from '../api.js';
 import { useBrand } from '../brand.js';
 import { Alert, Logo, useToast } from '../components/ui.jsx';
+import { LanguagePicker, useErrorText, useLanguage, useT } from '../i18n.jsx';
 import ItemSheet from './customer/ItemSheet.jsx';
 import ProductCard from './customer/ProductCard.jsx';
 import OrderTracker from './customer/OrderTracker.jsx';
@@ -13,9 +14,10 @@ import { ALLERGEN_MATCH, allergenMatch } from '../../shared/allergens.js';
 import { cartCount, cartTotal, priceCart, soldOutItemIds, toOrderLines } from './customer/cart.js';
 
 function CategoryTabs({ menu, active, onSelect }) {
+  const t = useT();
   if (!menu || menu.length < 2) return null;
   return (
-    <nav className="tabs cat-tabs" aria-label="Catégories">
+    <nav className="tabs cat-tabs" aria-label={t('menu.categories')}>
       {menu.map((cat) => (
         <button
           key={cat.id}
@@ -44,14 +46,15 @@ function filterMenu(menu, avoided) {
 }
 
 function PlacedNotice({ order, table, onClose }) {
+  const t = useT();
   return (
     <div className="confirm" role="status">
       <div className="confirm-check" aria-hidden="true">✓</div>
       <div>
-        <strong>Commande n° {order.number} envoyée !</strong>
-        <div>On vous l'apporte à la table {table}. Total : {euro(order.total)}</div>
+        <strong>{t('placed.title', { number: order.number })}</strong>
+        <div>{t('placed.table', { table, total: euro(order.total) })}</div>
       </div>
-      <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>OK</button>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.ok')}</button>
     </div>
   );
 }
@@ -59,7 +62,10 @@ function PlacedNotice({ order, table, onClose }) {
 export default function Customer({ table }) {
   const brand = useBrand();
   const toast = useToast();
-  const { menu, loadError, reloadMenu, ordersSignal } = useCustomerMenu();
+  const t = useT();
+  const errorText = useErrorText();
+  const { lang } = useLanguage();
+  const { menu, loadFailed, reloadMenu, ordersSignal } = useCustomerMenu(lang);
   const [activeCat, setActiveCat] = useState(null);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(null);
@@ -85,7 +91,7 @@ export default function Customer({ table }) {
     setSending(true);
     setError('');
     try {
-      const order = await api.createOrder({ table, lines: toOrderLines(cart) });
+      const order = await api.createOrder({ table, lang, lines: toOrderLines(cart) });
       rememberOrder(table, order.id);
       setPlaced(order);
       setCart([]);
@@ -93,7 +99,7 @@ export default function Customer({ table }) {
       setTrackerKey((k) => k + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
-      setError(e.message);
+      setError(errorText(e, { name: itemName(e.vars?.itemId) }));
       reloadMenu();
     } finally {
       setSending(false);
@@ -103,10 +109,11 @@ export default function Customer({ table }) {
   const addLine = (line) => {
     setCart((c) => [...c, line]);
     setOpen(null);
-    toast(`${line.qty > 1 ? `${line.qty} × ` : ''}${line.item.name} ajouté au panier`);
+    toast(t('menu.addedToCart', { name: `${line.qty > 1 ? `${line.qty} × ` : ''}${line.item.name}` }));
   };
   const quickAdd = (item) => addLine({ key: crypto.randomUUID(), item, options: {}, qty: 1, note: '' });
   const removeLine = (key) => setCart((c) => c.filter((l) => l.key !== key));
+  const itemName = (id) => lines.find((l) => l.item.id === id)?.item.name || '';
 
   return (
     <div className="customer">
@@ -115,9 +122,12 @@ export default function Customer({ table }) {
           <Logo />
           <div className="tagline">{brand.tagline}</div>
         </div>
-        <div className="table-badge">
-          <span>Table</span>
-          <strong>{table}</strong>
+        <div className="c-header-side">
+          <div className="table-badge">
+            <span>{t('common.table')}</span>
+            <strong>{table}</strong>
+          </div>
+          <LanguagePicker />
         </div>
       </header>
 
@@ -127,8 +137,8 @@ export default function Customer({ table }) {
 
       <OrderTracker key={trackerKey} place={table} live={ordersSignal} />
 
-      {loadError && <Alert>{loadError}</Alert>}
-      {!menu && !loadError && <p className="muted center">Chargement de la carte…</p>}
+      {loadFailed && <Alert>{t('menu.loadError')}</Alert>}
+      {!menu && !loadFailed && <p className="muted center">{t('menu.loading')}</p>}
 
       {menu && <AllergenFilter avoided={avoided} onChange={setAvoided} hiddenCount={hiddenCount} />}
 
@@ -143,16 +153,16 @@ export default function Customer({ table }) {
         </section>
       ))}
 
-      <p className="small muted center allergen-legal">Informations sur les allergènes : touchez un article, ou demandez au comptoir.</p>
+      <p className="small muted center allergen-legal">{t('allergens.legal')}</p>
 
       <footer className="c-footer">
-        {brand.name} · Table {table}
+        {t('menu.footer', { brand: brand.name, table })}
       </footer>
 
       {count > 0 && !showCart && (
         <button type="button" className="cart-bar" onClick={() => setShowCart(true)}>
-          <span className="cart-count" aria-label={`${count} article${count > 1 ? 's' : ''}`}>{count}</span>
-          <span className="cart-label">Voir mon panier</span>
+          <span className="cart-count" aria-label={t('cart.count', { count })}>{count}</span>
+          <span className="cart-label">{t('cart.open')}</span>
           <span className="price">{euro(total)}</span>
         </button>
       )}
@@ -161,7 +171,7 @@ export default function Customer({ table }) {
 
       {showCart && (
         <CartSheet
-          title={`Ma commande · table ${table}`}
+          title={t('cart.title', { table })}
           lines={lines}
           total={total}
           soldOutIds={soldOutIds}
