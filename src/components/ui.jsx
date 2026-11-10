@@ -1,6 +1,6 @@
 // Composants partagés du design system (DESIGN.md, section 7, et design/components/).
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
-import { STATUS_LABELS } from '../api.js';
+import { STATUS_LABELS } from '../../shared/orderStatus.js';
 import { useBrand } from '../brand.js';
 
 // Nom de l'établissement, ou son logo si BRAND_LOGO est défini.
@@ -16,10 +16,11 @@ export function Logo({ size = 'md', as: Tag = 'div', ...props }) {
 // Statut d'une commande : toujours une couleur, une icône et un libellé.
 const STATUS_ICONS = { nouvelle: '●', en_cours: '◐', prete: '✓', servie: '✓', annulee: '×' };
 
-export function StatusBadge({ status, comptoir = false }) {
+// label : libellé traduit (écran client) ; par défaut, celui du comptoir.
+export function StatusBadge({ status, comptoir = false, label = STATUS_LABELS[status] }) {
   return (
     <span className={`status status-${status} ${comptoir ? 'status-comptoir' : ''}`}>
-      <span aria-hidden="true">{STATUS_ICONS[status]}</span> {STATUS_LABELS[status]}
+      <span aria-hidden="true">{STATUS_ICONS[status]}</span> {label}
     </span>
   );
 }

@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
 import { api, AuthError, euro } from '../../api.js';
 import { Alert, Modal } from '../../components/ui.jsx';
+import AllergenEditor, { allergenFormState, allergenPayload } from './AllergenEditor.jsx';
+import { TranslationsEditor, frenchText, toLocalized } from './translations.jsx';
+import OptionGroupEditor, { emptyGroup, groupFormState, groupPayload, groupTranslationRows } from './OptionGroupEditor.jsx';
 
 // Réduit la photo dans le navigateur (800 px max, JPEG) avant l'envoi : rapide et léger pour la base.
 function resizeImage(file, max = 800) {
@@ -24,18 +27,55 @@ function resizeImage(file, max = 800) {
   });
 }
 
-const emptyGroup = () => ({ name: '', type: 'single', required: true, choices: [{ name: '', price: 0 }] });
+const MAX_GROUPS = 10;
 
-export default function ItemEditor({ item, categories, categoryId, onClose, onSaved, onAuthError }) {
+const VAT_RATES = [6, 12, 21, 0];
+const VAT_FIELDS = [
+  { mode: 'sur_place', label: 'TVA sur place' },
+  { mode: 'emporter', label: 'TVA à emporter' },
+];
+
+// Taux de TVA (à faire confirmer par le comptable), gardés sur chaque ligne de commande.
+function VatEditor({ value, onChange }) {
+  return (
+    <div className="editor-grid">
+      {VAT_FIELDS.map(({ mode, label }) => (
+        <label key={mode} className="field">
+          {label}
+          <select value={value[mode]} onChange={(e) => onChange({ ...value, [mode]: e.target.value })}>
+            <option value="">Non renseignée</option>
+            {VAT_RATES.map((rate) => (
+              <option key={rate} value={rate}>{rate} %</option>
+            ))}
+          </select>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+// Tous les textes de l'article, dans l'ordre du formulaire, pour la section Traductions.
+function translationRows(form, set, setGroup) {
+  return [
+    { id: 'name', value: form.name, max: 60, onChange: (name) => set({ name }) },
+    { id: 'description', value: form.description, max: 200, onChange: (description) => set({ description }) },
+    ...form.options.flatMap((group, gi) => groupTranslationRows(group, (next) => setGroup(gi, next), `g${gi}`)),
+  ];
+}
+
+export default function ItemEditor({ item, categories, optionSets = [], categoryId, onClose, onSaved, onAuthError }) {
   const isNew = !item;
   const [form, setForm] = useState(() => ({
     categoryId: categoryId || categories[0]?.id,
-    name: item?.name || '',
-    description: item?.description || '',
+    name: toLocalized(item?.name),
+    description: toLocalized(item?.description),
     price: item ? String(item.price).replace('.', ',') : '',
     emoji: item?.emoji || '🥐',
     image: item?.image || null,
-    options: structuredClone(item?.options || []),
+    options: (item?.options || []).map(groupFormState),
+    optionSetIds: item?.optionSetIds || [],
+    allergens: allergenFormState(item),
+    vat: { sur_place: item?.vat?.sur_place ?? '', emporter: item?.vat?.emporter ?? '' },
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -43,10 +83,9 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
   const fileInput = useRef(null);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
-  const setGroup = (gi, patch) =>
-    set({ options: form.options.map((g, i) => (i === gi ? { ...g, ...patch } : g)) });
-  const setChoice = (gi, ci, patch) =>
-    setGroup(gi, { choices: form.options[gi].choices.map((c, i) => (i === ci ? { ...c, ...patch } : c)) });
+  const setGroup = (gi, group) => set({ options: form.options.map((g, i) => (i === gi ? group : g)) });
+  const toggleOptionSet = (id) =>
+    set({ optionSetIds: form.optionSetIds.includes(id) ? form.optionSetIds.filter((x) => x !== id) : [...form.optionSetIds, id] });
 
   const fail = (e) => {
     if (e instanceof AuthError) return onAuthError();
@@ -76,10 +115,8 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
     try {
       const body = {
         ...form,
-        options: form.options.map((g) => ({
-          ...g,
-          choices: g.choices.map((c) => ({ ...c, price: String(c.price ?? 0).replace(',', '.') || 0 })),
-        })),
+        ...allergenPayload(form.allergens),
+        options: form.options.map(groupPayload),
       };
       const saved = isNew ? await api.addItem(body) : await api.updateItem(item.id, body);
       onSaved(saved);
@@ -94,7 +131,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
     <Modal
       as="form"
       wide
-      title={isNew ? 'Nouvel article' : `Modifier « ${item.name} »`}
+      title={isNew ? 'Nouvel article' : `Modifier « ${frenchText(item.name)} »`}
       onClose={onClose}
       onSubmit={save}
       footer={
@@ -124,7 +161,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
         <div className="editor-grid">
           <label className="field">
             Nom
-            <input value={form.name} onChange={(e) => set({ name: e.target.value })} maxLength={60} required />
+            <input value={form.name.fr || ''} onChange={(e) => set({ name: { ...form.name, fr: e.target.value } })} maxLength={60} required />
           </label>
           <label className="field">
             Prix (€)
@@ -134,7 +171,7 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
             Catégorie
             <select value={form.categoryId} onChange={(e) => set({ categoryId: e.target.value })}>
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{frenchText(c.name)}</option>
               ))}
             </select>
           </label>
@@ -145,72 +182,41 @@ export default function ItemEditor({ item, categories, categoryId, onClose, onSa
         </div>
         <label className="field">
           Description
-          <textarea value={form.description} onChange={(e) => set({ description: e.target.value })} maxLength={200} rows={2} />
+          <textarea value={form.description.fr || ''} onChange={(e) => set({ description: { ...form.description, fr: e.target.value } })} maxLength={200} rows={2} />
         </label>
 
+        <AllergenEditor value={form.allergens} onChange={(allergens) => set({ allergens })} />
+
+        <VatEditor value={form.vat} onChange={(vat) => set({ vat })} />
+
         <h3 className="editor-title">Options proposées au client</h3>
-        {form.options.length === 0 && <p className="muted small">Aucune option : le client ajoute l'article tel quel.</p>}
-        {form.options.map((g, gi) => (
-          <fieldset key={gi} className="editor-group">
-            <div className="editor-group-head">
-              <input
-                className="editor-input"
-                value={g.name}
-                onChange={(e) => setGroup(gi, { name: e.target.value })}
-                aria-label="Nom du groupe d'options"
-                placeholder="Nom du groupe (ex. Lait, Taille)"
-                maxLength={40}
-                required
-              />
-              <select className="editor-input" aria-label="Type de choix" value={g.type} onChange={(e) => setGroup(gi, { type: e.target.value })}>
-                <option value="single">Un seul choix (obligatoire)</option>
-                <option value="multi">Plusieurs choix (facultatif)</option>
-              </select>
-              <button type="button" className="btn btn-ghost btn-sm danger" onClick={() => set({ options: form.options.filter((_, i) => i !== gi) })}>
-                Supprimer
-              </button>
-            </div>
-            {g.choices.map((c, ci) => (
-              <div key={ci} className="editor-choice">
-                <input
-                  className="editor-input"
-                  value={c.name}
-                  onChange={(e) => setChoice(gi, ci, { name: e.target.value })}
-                  aria-label="Nom du choix"
-                  placeholder="Choix (ex. Avoine)"
-                  maxLength={40}
-                  required
-                />
-                <input
-                  className="editor-input editor-price"
-                  value={c.price}
-                  onChange={(e) => setChoice(gi, ci, { price: e.target.value })}
-                  inputMode="decimal"
-                  aria-label="Supplément en euros"
-                  title="Supplément en euros (0 = gratuit)"
-                />
-                <button
-                  type="button"
-                  className="icon-btn"
-                  aria-label="Retirer ce choix"
-                  disabled={g.choices.length === 1}
-                  onClick={() => setGroup(gi, { choices: g.choices.filter((_, i) => i !== ci) })}
-                >
-                  ×
-                </button>
-              </div>
+        {optionSets.length > 0 && (
+          <div className="shared-sets" role="group" aria-label="Options partagées">
+            {optionSets.map((optionSet) => (
+              <label key={optionSet.id} className="limits-check">
+                <input type="checkbox" checked={form.optionSetIds.includes(optionSet.id)} onChange={() => toggleOptionSet(optionSet.id)} />
+                {frenchText(optionSet.name)} <span className="muted">(partagé)</span>
+              </label>
             ))}
-            <button type="button" className="link small" onClick={() => setGroup(gi, { choices: [...g.choices, { name: '', price: 0 }] })}>
-              + Ajouter un choix
-            </button>
-          </fieldset>
+          </div>
+        )}
+        {form.options.length === 0 && !form.optionSetIds.length && <p className="muted small">Aucune option : le client ajoute l'article tel quel.</p>}
+        {form.options.map((group, gi) => (
+          <OptionGroupEditor
+            key={gi}
+            group={group}
+            onChange={(next) => setGroup(gi, next)}
+            onRemove={() => set({ options: form.options.filter((_, i) => i !== gi) })}
+          />
         ))}
-        {form.options.length < 10 && (
+        {form.options.length < MAX_GROUPS && (
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => set({ options: [...form.options, emptyGroup()] })}>
             + Ajouter un groupe d'options
           </button>
         )}
         <p className="muted small">Le supplément s'ajoute au prix de base ({euro(0.5)} par exemple). Laissez 0 si le choix est gratuit.</p>
+
+        <TranslationsEditor rows={translationRows(form, set, setGroup)} />
 
         {error && <Alert>{error}</Alert>}
       </div>

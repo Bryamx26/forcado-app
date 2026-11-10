@@ -428,8 +428,10 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; color: var(--in
   background: var(--surface-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
   border-left: 6px solid var(--border-soft);
 }
-.ticket-late { border-left-color: var(--accent-caramel); }
-.ticket-late .ticket-meta { color: var(--accent-caramel-strong); }
+.ticket-warn { border-left-color: var(--accent-caramel); }
+.ticket-warn .ticket-meta { color: var(--accent-caramel-strong); }
+.ticket-late { border-left-color: var(--danger); background: var(--danger-tint); }
+.ticket-late .ticket-meta { color: var(--danger); }
 .ticket-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
 .ticket-number { font-size: var(--text-ticket); line-height: var(--leading-ticket); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ticket-meta { font-weight: 600; color: var(--ink-muted); }
@@ -597,3 +599,103 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; color: var(--in
 .home .site-footer { padding-bottom: 0; }
 /* Une fenêtre ouverte passe devant : ses propres boutons ne doivent pas être masqués par un toast. */
 body.modal-open .toasts { display: none; }
+
+/* Allergènes : toujours un libellé à côté de l'icône. */
+.allergens { margin-top: var(--space-5); }
+.allergens-title { font-size: var(--text-body); margin: 0 0 var(--space-2); }
+.allergens-subtitle { font-size: var(--text-small); font-weight: 600; margin: var(--space-3) 0 var(--space-2); color: var(--ink-muted); }
+.allergen-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.allergen-chip {
+  display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-pill); font-size: var(--text-small);
+}
+.allergen-unknown { margin-top: var(--space-5); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.allergen-filter { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin: var(--space-3) 0; }
+.allergen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 var(--space-2); }
+.allergen-grid .opt span:nth-child(2) { flex: 0; }
+.product-flag { font-size: var(--text-small); color: var(--ink-muted); }
+.product-flag-traces { color: var(--accent-caramel-strong); font-weight: 600; }
+.allergen-legal { margin-top: var(--space-6); }
+.allergen-editor { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-2) var(--space-4); }
+.allergen-editor label { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+
+/* Choix de la langue, dans l'en-tête client. */
+.lang-picker select {
+  min-height: 36px; padding: 0 var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-pill);
+  background: var(--surface-card); color: var(--ink); font: inherit; font-size: var(--text-small);
+}
+.c-header-side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); }
+
+/* Traductions de la carte (espace employés). */
+.translations { margin-top: var(--space-5); border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: var(--space-3); }
+.translations summary { cursor: pointer; font-weight: 600; }
+.translation-row { display: grid; grid-template-columns: minmax(120px, 1fr) repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-2); align-items: center; margin-top: var(--space-2); }
+.translation-label { font-size: var(--text-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Limites d'un groupe d'options (espace employés). */
+.limits-editor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: var(--space-2) 0; }
+.limits-check { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-small); white-space: nowrap; }
+.limits-number { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-small); }
+.limits-number input { width: 64px; }
+.shared-sets { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: var(--space-2) 0 var(--space-3); }
+.opt-out { opacity: 0.55; cursor: not-allowed; }
+.opt-soldout { font-size: var(--text-small); color: var(--danger); font-weight: 600; }
+.switch-row { display: flex; margin-bottom: var(--space-2); }
+.option-sets { margin-top: var(--space-6); }
+
+/* Écran cuisine : tickets triés par ancienneté et total des articles à sortir. */
+.kitchen { padding: var(--space-4); }
+.kitchen-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.kitchen-head h2 { margin: 0; }
+.kitchen-layout { display: grid; grid-template-columns: 1fr; gap: var(--space-4); align-items: start; }
+@media (min-width: 900px) { .kitchen-layout { grid-template-columns: 1fr 300px; } }
+.kitchen-queue { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); }
+.kitchen-queue .ticket-lines { font-size: var(--text-body-lg); }
+.kitchen-totals ul { list-style: none; margin: 0; padding: 0; }
+.kitchen-totals li { padding: var(--space-2) 0; border-bottom: 1px solid var(--border-soft); }
+.kitchen-totals h2 { margin-top: 0; }
+
+/* Écran de salle « commandes prêtes » (télé) : lisible de loin, numéros seulement. */
+.ready-board { min-height: 100vh; padding: var(--space-6); background: var(--surface-page); display: flex; flex-direction: column; gap: var(--space-6); }
+.board-header { display: flex; justify-content: space-between; align-items: center; }
+.board-columns { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); flex: 1; }
+.board-column { background: var(--surface-card); border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-md); }
+.board-column h2 { margin: 0 0 var(--space-5); font-size: var(--text-h2); }
+.board-column ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.board-column li { min-width: 3.5ch; text-align: center; font-size: clamp(40px, 7vw, 96px); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.board-preparing li { color: var(--ink-muted); }
+.board-ready { border-top: 8px solid var(--success); }
+.board-ready li { color: var(--success); }
+.board-fresh { animation: board-pop 1.2s var(--ease-standard) 3; }
+@keyframes board-pop { 50% { transform: scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .board-fresh { animation: none; text-decoration: underline; } }
+.tracker-wait { margin: var(--space-2) 0 0; font-weight: 600; }
+.confirm .btn { margin-top: var(--space-2); }
+.ready-alert-done { color: var(--success); font-weight: 600; margin: var(--space-2) 0 0; }
+
+/* À emporter */
+.takeaway-fields { margin-top: var(--space-4); }
+.alert-inline { color: var(--danger); font-weight: 600; }
+.takeaway-badge { text-align: center; display: grid; place-items: center; }
+.takeaway-badge strong { font-size: var(--text-body); line-height: var(--leading-body); }
+.scheduled { margin-bottom: var(--space-4); }
+
+/* Statistiques (espace employés) */
+.stats-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.stats-page .stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.stats-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-5); margin: var(--space-5) 0; }
+.bar-chart { margin: 0; }
+.bar-chart figcaption { display: flex; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); font-size: var(--text-small); }
+.bar-chart-title { font-weight: 600; }
+.bar-chart-value { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.bar-chart svg { width: 100%; height: auto; max-height: 220px; display: block; overflow: visible; }
+.bar-chart-bar { fill: var(--brand-blue); }
+.bar-chart-bar.on { fill: var(--brand-blue-strong); }
+.bar-chart-hit { fill: transparent; }
+.bar-chart-axis { stroke: var(--border-soft); stroke-width: 1; }
+.bar-chart-tick { fill: var(--ink-muted); font-size: 10px; text-anchor: middle; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: var(--text-small); }
+.stats-table th, .stats-table td { text-align: left; padding: var(--space-2); border-bottom: 1px solid var(--border-soft); }
+.stats-table td { font-variant-numeric: tabular-nums; }
+.stats-page .stats { margin-top: var(--space-4); }
+@media (max-width: 700px) { .board-columns { grid-template-columns: 1fr; } .ready-board { padding: var(--space-4); } }

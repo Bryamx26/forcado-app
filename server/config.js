@@ -1,6 +1,14 @@
 // Identité de l'établissement. Pour vendre l'app à un autre commerce, il suffit de changer ces valeurs
 // (ou les variables d'environnement correspondantes sur Vercel), puis composer la carte depuis l'espace employés (onglet Carte).
+import { SUPPORTED_LANGUAGES } from '../shared/i18n/index.js';
+
 const env = process.env;
+
+// Langues proposées aux clients (BRAND_LANGUAGES=fr,nl,en,pt). Le comptoir reste en français.
+const languages = String(env.BRAND_LANGUAGES || SUPPORTED_LANGUAGES.join(','))
+  .split(',')
+  .map((lang) => lang.trim().toLowerCase())
+  .filter((lang) => SUPPORTED_LANGUAGES.includes(lang));
 
 export const brand = {
   name: env.BRAND_NAME || 'Forcado',
@@ -18,6 +26,7 @@ export const brand = {
   logo: env.BRAND_LOGO || '', // ex. /produits/logo.svg ; sans logo, le nom s'affiche en Fraunces
   currency: env.BRAND_CURRENCY || 'EUR',
   locale: env.BRAND_LOCALE || 'fr-BE',
+  languages: languages.length ? languages : ['fr'],
   paymentNote: env.BRAND_PAYMENT_NOTE || 'Paiement à la table ou au comptoir.',
   website: env.BRAND_WEBSITE || 'https://forcado.be',
   city: env.BRAND_CITY || 'Bruxelles',
@@ -57,3 +66,51 @@ export const brand = {
 export const siteUrl = (
   env.SITE_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
 ).replace(/\/$/, '');
+
+// Fuseau horaire de l'établissement : jours des statistiques, créneaux de retrait (le serveur Vercel est en UTC).
+export const timeZone = env.TIMEZONE || 'Europe/Brussels';
+
+const positiveInt = (name, fallback) => {
+  const n = parseInt(env[name], 10);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+};
+
+// Cuisine : seuils d'alerte d'un ticket (minutes), nombre de commandes préparées en même temps, et temps de
+// préparation supposé tant qu'aucune commande n'a encore été marquée prête.
+export const kitchen = {
+  warnAfterMin: positiveInt('KITCHEN_WARN_MIN', 7),
+  lateAfterMin: positiveInt('KITCHEN_LATE_MIN', 12),
+  capacity: positiveInt('KITCHEN_CAPACITY', 3),
+  defaultPrepMin: positiveInt('KITCHEN_DEFAULT_PREP_MIN', 5),
+};
+
+// Notifications Web Push (clés générées par `npx web-push generate-vapid-keys`). Sans clés, le bouton n'apparaît pas.
+export const push = {
+  publicKey: env.VAPID_PUBLIC_KEY || '',
+  privateKey: env.VAPID_PRIVATE_KEY || '',
+  subject: env.VAPID_SUBJECT || (brand.legal.email ? `mailto:${brand.legal.email}` : brand.website),
+};
+
+// À emporter et précommande. OPENING_HOURS : « lun-ven 08:00-19:00; sam 09:00-17:00 » (jours absents = fermé).
+export const takeaway = {
+  enabled: env.TAKEAWAY !== 'false',
+  openingHours: env.OPENING_HOURS || 'lun-dim 08:00-19:00',
+  timeZone,
+  slotMin: positiveInt('PICKUP_SLOT_MIN', 15),
+  slotCapacity: positiveInt('PICKUP_SLOT_CAPACITY', 5),
+  // Délai minimum entre l'envoi et le premier créneau proposé.
+  leadMin: positiveInt('PICKUP_MIN_LEAD_MIN', 20),
+  // Une précommande entre en cuisine ce nombre de minutes avant l'heure de retrait.
+  prepLeadMin: positiveInt('PREP_LEAD_MIN', 20),
+  // Tant que le paiement en ligne n'existe pas, une précommande non retirée est une perte : on plafonne son montant.
+  preorderMaxTotal: positiveInt('PREORDER_MAX_TOTAL', 50),
+};
+
+// Ce que /api/config renvoie au navigateur (jamais la clé privée).
+export const publicConfig = {
+  ...brand,
+  timeZone,
+  kitchen,
+  pushPublicKey: push.publicKey,
+  takeaway: { enabled: takeaway.enabled, timeZone: takeaway.timeZone, preorderMaxTotal: takeaway.preorderMaxTotal },
+};

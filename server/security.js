@@ -1,9 +1,7 @@
 // Protections communes : en-têtes de sécurité, adresse IP fiable et limite de requêtes.
-import { Redis } from '@upstash/redis';
+import { redisClient } from './redis.js';
 
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
+const redis = redisClient();
 
 // Sur Vercel, x-real-ip est posé par la plateforme et ne peut pas être falsifié par le client.
 // Ailleurs, on ne fait confiance qu'à l'adresse de la connexion (x-forwarded-for se falsifie librement).
@@ -51,7 +49,7 @@ export function rateLimit(name, limit, windowSec, message = 'Trop de requêtes. 
       const count = await hit(`${name}:${keyOf(req)}`, windowSec);
       if (count > limit) {
         res.set('Retry-After', String(windowSec));
-        return res.status(429).json({ error: message });
+        return res.status(429).json({ error: message, code: 'rate_limited' });
       }
       next();
     } catch (e) {

@@ -4,11 +4,13 @@ import { BrandContext, defaultBrand } from './brand.js';
 import Customer from './pages/Customer.jsx';
 import Staff from './pages/Staff.jsx';
 import Home from './pages/Home.jsx';
+import ReadyBoard from './pages/ReadyBoard.jsx';
 import About from './pages/site/About.jsx';
 import Offer from './pages/site/Offer.jsx';
 import { LegalNotice, Privacy } from './pages/site/Legal.jsx';
 import { publicPages } from './seo.js';
 import { ToastProvider } from './components/ui.jsx';
+import { LanguageProvider } from './i18n.jsx';
 
 const SITE_PAGES = {
   '/a-propos': About,
@@ -84,7 +86,21 @@ export default function App() {
   let page;
   if (table) {
     document.title = `${brand.name} · Table ${table[1]}`;
-    page = <Customer table={parseInt(table[1], 10)} />;
+    page = (
+      <LanguageProvider languages={brand.languages || ['fr']}>
+        <Customer table={parseInt(table[1], 10)} />
+      </LanguageProvider>
+    );
+  } else if (path === '/emporter' && brand.takeaway?.enabled) {
+    document.title = `${brand.name} · À emporter`;
+    page = (
+      <LanguageProvider languages={brand.languages || ['fr']}>
+        <Customer />
+      </LanguageProvider>
+    );
+  } else if (path === '/ecran') {
+    document.title = `${brand.name} · Commandes prêtes`;
+    page = <ReadyBoard />;
   } else if (path.startsWith('/comptoir')) {
     document.title = `${brand.name} · Espace employés`;
     page = <Staff />;

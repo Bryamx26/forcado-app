@@ -1,387 +1,130 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, euro, STATUS_LABELS } from '../api.js';
+import { useMemo, useState } from 'react';
+import { api, euro } from '../api.js';
 import { useBrand } from '../brand.js';
-import { useLiveEvents } from '../live.js';
-import { Alert, Logo, Modal, StatusBadge, useToast } from '../components/ui.jsx';
+import { Alert, Logo, useToast } from '../components/ui.jsx';
+import { LanguagePicker, useErrorText, useLanguage, useT } from '../i18n.jsx';
+import ItemSheet from './customer/ItemSheet.jsx';
+import ProductCard from './customer/ProductCard.jsx';
+import OrderTracker from './customer/OrderTracker.jsx';
+import CartSheet from './customer/CartSheet.jsx';
+import ReadyAlert from './customer/ReadyAlert.jsx';
+import TakeawayFields from './customer/TakeawayFields.jsx';
+import { formatTime } from '../time.js';
+import { ORDER_MODE } from '../../shared/pickup.js';
+import { useCustomerMenu } from './customer/useCustomerMenu.js';
+import { rememberOrder } from './customer/myOrders.js';
+import AllergenFilter, { useAvoidedAllergens } from './customer/AllergenFilter.jsx';
+import { ALLERGEN_MATCH, allergenMatch } from '../../shared/allergens.js';
+import { cartCount, cartTotal, priceCart, soldOutItemIds, toOrderLines } from './customer/cart.js';
 
-const storageKey = (table) => `forcado-orders-table-${table}`;
-
-// Modifications déjà lues par le client : { idCommande: modifiedAt }.
-const ACK_KEY = 'forcado-modifications-lues';
-function readAcks() {
-  try {
-    return JSON.parse(localStorage.getItem(ACK_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
-
-function readMyOrders(table) {
-  try {
-    return JSON.parse(localStorage.getItem(storageKey(table))) || [];
-  } catch {
-    return [];
-  }
-}
-
-function unitPrice(item, selected) {
-  let price = item.price;
-  for (const group of item.options) {
-    for (const id of selected[group.id] || []) {
-      price += group.choices.find((c) => c.id === id)?.price || 0;
-    }
-  }
-  return price;
-}
-
-function optionSummary(item, selected) {
-  return item.options
-    .flatMap((g) => (selected[g.id] || []).map((id) => g.choices.find((c) => c.id === id)?.name))
-    .filter(Boolean)
-    .join(', ');
-}
-
-// Photo du produit si public/produits/<id>.jpg existe, sinon l'emoji.
-function ProductVisual({ item, className }) {
-  const [failed, setFailed] = useState(false);
+function CategoryTabs({ menu, active, onSelect }) {
+  const t = useT();
+  if (!menu || menu.length < 2) return null;
   return (
-    <span className={className}>
-      {item.image && !failed ? <img src={item.image} alt="" loading="lazy" onError={() => setFailed(true)} /> : item.emoji}
-    </span>
-  );
-}
-
-function ItemSheet({ item, onClose, onAdd }) {
-  const [selected, setSelected] = useState(() => {
-    const init = {};
-    for (const g of item.options) init[g.id] = g.required ? [g.choices[0].id] : [];
-    return init;
-  });
-  const [qty, setQty] = useState(1);
-  const [note, setNote] = useState('');
-
-  const toggle = (group, choiceId) => {
-    setSelected((s) => {
-      if (group.type === 'single') return { ...s, [group.id]: [choiceId] };
-      const cur = s[group.id] || [];
-      return { ...s, [group.id]: cur.includes(choiceId) ? cur.filter((x) => x !== choiceId) : [...cur, choiceId] };
-    });
-  };
-
-  const price = unitPrice(item, selected);
-
-  return (
-    <Modal
-      title={item.name}
-      onClose={onClose}
-      media={<ProductVisual item={item} className="sheet-visual" />}
-      footer={
-        <>
-          <div className="qty" role="group" aria-label="Quantité">
-            <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Retirer un">−</button>
-            <span aria-live="polite">{qty}</span>
-            <button type="button" onClick={() => setQty((q) => Math.min(20, q + 1))} aria-label="Ajouter un">+</button>
-          </div>
-          <button
-            type="button"
-            className="btn btn-lg btn-grow"
-            onClick={() => onAdd({ key: crypto.randomUUID(), item, options: selected, qty, note, price })}
-          >
-            Ajouter · {euro(price * qty)}
-          </button>
-        </>
-      }
-    >
-      {item.description && <p className="muted">{item.description}</p>}
-
-      {item.options.map((group) => (
-        <fieldset key={group.id} className="opt-group">
-          <legend>
-            {group.name}
-            <span className="opt-hint">{group.type === 'single' ? 'Un choix' : 'Facultatif'}</span>
-          </legend>
-          {group.choices.map((c) => {
-            const checked = (selected[group.id] || []).includes(c.id);
-            return (
-              <label key={c.id} className={`opt ${checked ? 'opt-on' : ''}`}>
-                <input
-                  type={group.type === 'single' ? 'radio' : 'checkbox'}
-                  name={group.id}
-                  checked={checked}
-                  onChange={() => toggle(group, c.id)}
-                />
-                <span>{c.name}</span>
-                {c.price !== 0 && <span className="opt-price">{c.price > 0 ? '+' : ''}{euro(c.price)}</span>}
-              </label>
-            );
-          })}
-        </fieldset>
-      ))}
-
-      <label className="field note">
-        Remarque (allergie, etc.)
-        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Facultatif" />
-      </label>
-    </Modal>
-  );
-}
-
-const STEPS = ['nouvelle', 'en_cours', 'prete'];
-const STEP_ICONS = { nouvelle: '●', en_cours: '◐', prete: '✓' };
-
-// Suivi en trois étapes : l'étape courante porte un libellé et une icône, jamais seulement une couleur.
-function Progress({ status }) {
-  const current = STEPS.indexOf(status);
-  return (
-    <ol className="progress">
-      {STEPS.map((step, i) => (
-        <li
-          key={step}
-          className={i < current ? 'done' : i === current ? `current step-${step}` : ''}
-          aria-current={i === current ? 'step' : undefined}
+    <nav className="tabs cat-tabs" aria-label={t('menu.categories')}>
+      {menu.map((cat) => (
+        <button
+          key={cat.id}
+          type="button"
+          className={`tab ${active === cat.id ? 'on' : ''}`}
+          aria-current={active === cat.id ? 'true' : undefined}
+          onClick={() => onSelect(cat.id)}
         >
-          <span className="progress-dot" aria-hidden="true">{i <= current ? STEP_ICONS[step] : ''}</span>
-          <span>{STATUS_LABELS[step]}</span>
-        </li>
+          {cat.name}
+        </button>
       ))}
-    </ol>
+    </nav>
   );
 }
 
-function OrderTracker({ table, live }) {
-  const [orders, setOrders] = useState([]);
-  const tickRef = useRef(() => {});
-  const seen = useRef({});
+// Masque les articles qui contiennent un allergène évité ; les autres gardent leur avertissement éventuel.
+function filterMenu(menu, avoided) {
+  if (!menu) return { visibleMenu: null, hiddenCount: 0 };
+  const rated = menu.map((cat) => ({ ...cat, items: cat.items.map((item) => ({ item, match: allergenMatch(item, avoided) })) }));
+  const isHidden = ({ match }) => match === ALLERGEN_MATCH.CONTAINS;
+  const hiddenCount = rated.flatMap((cat) => cat.items).filter(isHidden).length;
+  const visibleMenu = rated
+    .map((cat) => ({ ...cat, items: cat.items.filter((entry) => !isHidden(entry)) }))
+    .filter((cat) => cat.items.length);
+  return { visibleMenu, hiddenCount };
+}
 
-  const [ackModified, setAckModified] = useState(readAcks);
-  const ackModification = (o) => {
-    // Seules les 50 dernières sont gardées.
-    const next = Object.fromEntries([...Object.entries(ackModified), [o.id, o.modifiedAt]].slice(-50));
-    setAckModified(next);
-    try {
-      localStorage.setItem(ACK_KEY, JSON.stringify(next));
-    } catch {}
-  };
+function usePlacedText(order) {
+  const t = useT();
+  const { lang } = useLanguage();
+  const { takeaway } = useBrand();
+  const total = euro(order.total);
+  if (order.mode !== ORDER_MODE.TAKEAWAY) return t('placed.table', { table: order.table, total });
+  const when = order.pickupAt ? t('placed.at', { time: formatTime(order.pickupAt, takeaway.timeZone, lang) }) : t('placed.asap');
+  return t('placed.takeaway', { when, name: order.customerName, total });
+}
 
-  // Le client a lu l'avis d'annulation : la commande n'est plus suivie sur cet appareil.
-  const dismiss = (id) => {
-    localStorage.setItem(storageKey(table), JSON.stringify(readMyOrders(table).filter((x) => x !== id)));
-    setOrders((list) => list.filter((o) => o.id !== id));
-  };
-
-  useEffect(() => {
-    let alive = true;
-    const tick = async () => {
-      // Une commande servie ne bouge plus : inutile de la redemander au serveur.
-      const ids = readMyOrders(table).filter((id) => seen.current[id]?.status !== 'servie');
-      if (!ids.length) return;
-      try {
-        const data = await api.track(ids);
-        if (!alive) return;
-        // Annulation ou modification vue pendant que la page est ouverte : petite vibration sur les téléphones qui le permettent.
-        const changed = (o) => {
-          const before = seen.current[o.id];
-          return before && ((o.status === 'annulee' && before.status !== 'annulee') || o.modifiedAt !== before.modifiedAt);
-        };
-        if (data.some(changed)) navigator.vibrate?.([200, 100, 200]);
-        seen.current = { ...seen.current, ...Object.fromEntries(data.map((o) => [o.id, o])) };
-        // Les commandes annulées restent affichées jusqu'à ce que le client ferme l'avis.
-        setOrders(data.filter((o) => o.status !== 'servie').reverse());
-      } catch {}
-    };
-    tickRef.current = tick;
-    tick();
-    // Secours si le flux temps réel est coupé.
-    const t = setInterval(tick, 20000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [table]);
-
-  // Chaque changement au comptoir prévient tous les téléphones de la salle : on regroupe les signaux rapprochés
-  // et on étale les demandes pour ne pas les envoyer toutes au même instant.
-  useEffect(() => {
-    let timer;
-    const unsubscribe = live.subscribe(() => {
-      timer ??= setTimeout(() => {
-        timer = undefined;
-        tickRef.current();
-      }, 500 + Math.random() * 1500);
-    });
-    return () => {
-      unsubscribe();
-      clearTimeout(timer);
-    };
-  }, [live]);
-
-  if (!orders.length) return null;
+function PlacedNotice({ order, onClose }) {
+  const t = useT();
+  const text = usePlacedText(order);
   return (
-    <section className="tracker" aria-live="polite">
-      <h2>Suivi de vos commandes</h2>
-      {orders.map((o) =>
-        o.status === 'annulee' ? (
-          <div key={o.id} className="tracker-order tracker-cancelled" role="alert">
-            <div className="tracker-head">
-              <strong>Commande n° {o.number}</strong>
-              <StatusBadge status="annulee" />
-            </div>
-            <p className="small">
-              Votre commande a été annulée par l'équipe. Pour toute question, adressez-vous au comptoir.
-            </p>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => dismiss(o.id)}>
-              J'ai compris
-            </button>
-          </div>
-        ) : (
-          <div key={o.id} className="tracker-order">
-            <div className="tracker-head">
-              <strong>Commande n° {o.number}</strong>
-            </div>
-            {o.modifiedAt && ackModified[o.id] !== o.modifiedAt && (
-              <div className="tracker-modified" role="alert">
-                <strong>Commande modifiée par l'équipe</strong>
-                <ul className="small">
-                  {o.lines.map((l, i) => (
-                    <li key={i}>
-                      {l.qty} × {l.name}
-                      {l.options.length > 0 && <span className="muted"> ({l.options.join(', ')})</span>}
-                    </li>
-                  ))}
-                </ul>
-                <p className="small">
-                  Nouveau total : <strong>{euro(o.total)}</strong>
-                </p>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => ackModification(o)}>
-                  OK
-                </button>
-              </div>
-            )}
-            <Progress status={o.status} />
-            {o.status === 'prete' && <p className="small tracker-ready">Votre commande arrive à votre table.</p>}
-          </div>
-        ),
-      )}
-    </section>
+    <div className="confirm" role="status">
+      <div className="confirm-check" aria-hidden="true">✓</div>
+      <div>
+        <strong>{t('placed.title', { number: order.number })}</strong>
+        <div>{text}</div>
+        <ReadyAlert orderId={order.id} />
+      </div>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.ok')}</button>
+    </div>
   );
 }
 
-// Carte d'un article : toute la carte ouvre la fiche, le bouton + ajoute directement un article sans options.
-function ProductCard({ item, onOpen, onQuickAdd }) {
-  const out = item.soldOut;
-  return (
-    <article className={`product ${out ? 'product-out' : ''}`}>
-      <ProductVisual item={item} className="product-media" />
-      <div className="product-body">
-        <h3 className="product-name">
-          <button type="button" className="product-open" disabled={out} onClick={() => onOpen(item)}>
-            {item.name}
-          </button>
-        </h3>
-        {item.description && <p className="product-desc">{item.description}</p>}
-      </div>
-      <div className="product-footer">
-        {out ? <span className="product-soldout">Épuisé</span> : <span className="price">{euro(item.price)}</span>}
-        {!out && (
-          <button
-            type="button"
-            className="btn btn-icon"
-            aria-label={`Ajouter ${item.name}`}
-            onClick={() => (item.options.length ? onOpen(item) : onQuickAdd(item))}
-          >
-            +
-          </button>
-        )}
-      </div>
-    </article>
-  );
-}
+// Le prénom est obligatoire ; « plus tard » demande un créneau (pickupAt à undefined tant qu'il n'est pas choisi).
+const isPickupComplete = ({ customerName, pickupAt }) => customerName.trim().length > 0 && pickupAt !== undefined && pickupAt !== '';
 
-export default function Customer({ table }) {
+// table : numéro de la table (QR code de table) ; sans table, commande à emporter.
+export default function Customer({ table = null }) {
+  const isTakeaway = table == null;
+  const place = isTakeaway ? ORDER_MODE.TAKEAWAY : table;
   const brand = useBrand();
   const toast = useToast();
-  const [menu, setMenu] = useState(null);
+  const t = useT();
+  const errorText = useErrorText();
+  const { lang } = useLanguage();
+  const { menu, loadFailed, reloadMenu, ordersSignal } = useCustomerMenu(lang);
   const [activeCat, setActiveCat] = useState(null);
-  const loadMenu = useRef(() => {});
-  const [ordersLive] = useState(() => {
-    const subs = new Set();
-    return {
-      subscribe: (fn) => (subs.add(fn), () => subs.delete(fn)),
-      emit: () => subs.forEach((fn) => fn()),
-    };
-  });
   const [error, setError] = useState('');
   const [open, setOpen] = useState(null);
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
+  const [pickup, setPickup] = useState({ customerName: '', pickupAt: null });
   const [sending, setSending] = useState(false);
   const [placed, setPlaced] = useState(null);
   const [trackerKey, setTrackerKey] = useState(0);
+  const [avoided, setAvoided] = useAvoidedAllergens();
+  const { visibleMenu, hiddenCount } = useMemo(() => filterMenu(menu, avoided), [menu, avoided]);
 
-  useEffect(() => {
-    const load = () =>
-      api
-        .menu()
-        .then((all) => {
-          // Les catégories vides (en préparation côté employés) ne sont pas montrées aux clients.
-          const m = all.filter((c) => c.items.length);
-          setMenu(m);
-          setActiveCat((c) => c || m[0]?.id);
-        })
-        .catch(() => setError('Impossible de charger la carte.'));
-    loadMenu.current = load;
-    load();
-    // Secours si le flux temps réel est coupé.
-    const t = setInterval(load, 60000);
-    return () => clearInterval(t);
-  }, []);
-
-  useLiveEvents('/api/events', {
-    menu: () => loadMenu.current(),
-    orders: () => ordersLive.emit(),
-  });
-
-  const soldOutIds = useMemo(
-    () => new Set((menu || []).flatMap((c) => c.items.filter((i) => i.soldOut).map((i) => i.id))),
-    [menu],
-  );
-  // Le panier suit la carte actuelle : si l'équipe change un prix ou retire un article pendant que le client
-  // choisit, il le voit avant d'envoyer (le serveur facture toujours au prix de la carte).
-  const menuItems = useMemo(() => new Map((menu || []).flatMap((c) => c.items).map((i) => [i.id, i])), [menu]);
-  const priced = useMemo(
-    () =>
-      cart.map((l) => {
-        const item = menuItems.get(l.item.id);
-        return item ? { ...l, item, price: unitPrice(item, l.options) } : { ...l, gone: !!menu };
-      }),
-    [cart, menuItems, menu],
-  );
+  const lines = useMemo(() => priceCart(cart, menu), [cart, menu]);
+  const soldOutIds = useMemo(() => soldOutItemIds(menu), [menu]);
+  const total = cartTotal(lines);
+  const count = cartCount(cart);
 
   const goTo = (catId) => {
     setActiveCat(catId);
     document.getElementById(`cat-${catId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const total = useMemo(() => priced.reduce((s, l) => s + (l.gone ? 0 : l.price * l.qty), 0), [priced]);
-  const count = cart.reduce((s, l) => s + l.qty, 0);
-
   const submit = async () => {
     setSending(true);
     setError('');
     try {
-      const order = await api.createOrder({
-        table,
-        lines: cart.map((l) => ({ itemId: l.item.id, qty: l.qty, options: l.options, note: l.note })),
-      });
-      localStorage.setItem(storageKey(table), JSON.stringify([...readMyOrders(table), order.id].slice(-20)));
+      const where = isTakeaway ? { mode: ORDER_MODE.TAKEAWAY, ...pickup } : { mode: ORDER_MODE.DINE_IN, table };
+      const order = await api.createOrder({ ...where, lang, lines: toOrderLines(cart) });
+      rememberOrder(place, order.id);
       setPlaced(order);
       setCart([]);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
       setShowCart(false);
       setTrackerKey((k) => k + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
-      setError(e.message);
-      loadMenu.current();
+      setError(errorText(e, { name: itemName(e.vars?.itemId) }));
+      reloadMenu();
     } finally {
       setSending(false);
     }
@@ -390,8 +133,11 @@ export default function Customer({ table }) {
   const addLine = (line) => {
     setCart((c) => [...c, line]);
     setOpen(null);
-    toast(`${line.qty > 1 ? `${line.qty} × ` : ''}${line.item.name} ajouté au panier`);
+    toast(t('menu.addedToCart', { name: `${line.qty > 1 ? `${line.qty} × ` : ''}${line.item.name}` }));
   };
+  const quickAdd = (item) => addLine({ key: crypto.randomUUID(), item, options: {}, qty: 1, note: '' });
+  const removeLine = (key) => setCart((c) => c.filter((l) => l.key !== key));
+  const itemName = (id) => lines.find((l) => l.item.id === id)?.item.name || '';
 
   return (
     <div className="customer">
@@ -400,68 +146,53 @@ export default function Customer({ table }) {
           <Logo />
           <div className="tagline">{brand.tagline}</div>
         </div>
-        <div className="table-badge">
-          <span>Table</span>
-          <strong>{table}</strong>
+        <div className="c-header-side">
+          {isTakeaway ? (
+            <div className="table-badge takeaway-badge">
+              <strong>{t('takeaway.badge')}</strong>
+            </div>
+          ) : (
+            <div className="table-badge">
+              <span>{t('common.table')}</span>
+              <strong>{table}</strong>
+            </div>
+          )}
+          <LanguagePicker />
         </div>
       </header>
 
-      {menu && menu.length > 1 && (
-        <nav className="tabs cat-tabs" aria-label="Catégories">
-          {menu.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              className={`tab ${activeCat === cat.id ? 'on' : ''}`}
-              aria-current={activeCat === cat.id ? 'true' : undefined}
-              onClick={() => goTo(cat.id)}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </nav>
-      )}
+      <CategoryTabs menu={visibleMenu} active={activeCat ?? visibleMenu?.[0]?.id} onSelect={goTo} />
 
-      {placed && (
-        <div className="confirm" role="status">
-          <div className="confirm-check" aria-hidden="true">✓</div>
-          <div>
-            <strong>Commande n° {placed.number} envoyée !</strong>
-            <div>On vous l'apporte à la table {table}. Total : {euro(placed.total)}</div>
-          </div>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPlaced(null)}>OK</button>
-        </div>
-      )}
+      {placed && <PlacedNotice order={placed} onClose={() => setPlaced(null)} />}
 
-      <OrderTracker key={trackerKey} table={table} live={ordersLive} />
+      <OrderTracker key={trackerKey} place={place} live={ordersSignal} />
 
-      {error && <Alert>{error}</Alert>}
-      {!menu && !error && <p className="muted center">Chargement de la carte…</p>}
+      {loadFailed && <Alert>{t('menu.loadError')}</Alert>}
+      {!menu && !loadFailed && <p className="muted center">{t('menu.loading')}</p>}
 
-      {menu?.map((cat) => (
+      {menu && <AllergenFilter avoided={avoided} onChange={setAvoided} hiddenCount={hiddenCount} />}
+
+      {visibleMenu?.map((cat) => (
         <section key={cat.id} id={`cat-${cat.id}`} className="category">
           <h2>{cat.name}</h2>
           <div className="products">
-            {cat.items.map((item) => (
-              <ProductCard
-                key={item.id}
-                item={item}
-                onOpen={setOpen}
-                onQuickAdd={(i) => addLine({ key: crypto.randomUUID(), item: i, options: {}, qty: 1, note: '', price: i.price })}
-              />
+            {cat.items.map(({ item, match }) => (
+              <ProductCard key={item.id} item={item} allergenMatch={match} onOpen={setOpen} onQuickAdd={quickAdd} />
             ))}
           </div>
         </section>
       ))}
 
+      <p className="small muted center allergen-legal">{t('allergens.legal')}</p>
+
       <footer className="c-footer">
-        {brand.name} · Table {table}
+        {isTakeaway ? `${brand.name} · ${t('takeaway.badge')}` : t('menu.footer', { brand: brand.name, table })}
       </footer>
 
       {count > 0 && !showCart && (
         <button type="button" className="cart-bar" onClick={() => setShowCart(true)}>
-          <span className="cart-count" aria-label={`${count} article${count > 1 ? 's' : ''}`}>{count}</span>
-          <span className="cart-label">Voir mon panier</span>
+          <span className="cart-count" aria-label={t('cart.count', { count })}>{count}</span>
+          <span className="cart-label">{t('cart.open')}</span>
           <span className="price">{euro(total)}</span>
         </button>
       )}
@@ -469,45 +200,20 @@ export default function Customer({ table }) {
       {open && <ItemSheet item={open} onClose={() => setOpen(null)} onAdd={addLine} />}
 
       {showCart && (
-        <Modal
-          title={`Ma commande · table ${table}`}
+        <CartSheet
+          title={isTakeaway ? t('takeaway.title') : t('cart.title', { table })}
+          lines={lines}
+          total={total}
+          soldOutIds={soldOutIds}
+          error={error}
+          sending={sending}
+          canSubmit={!isTakeaway || isPickupComplete(pickup)}
+          onRemove={removeLine}
+          onSubmit={submit}
           onClose={() => setShowCart(false)}
-          footer={
-            <button type="button" className="btn btn-lg btn-block" disabled={!cart.length || sending} aria-busy={sending || undefined} onClick={submit}>
-              {sending ? 'Envoi…' : `Envoyer la commande · ${euro(total)}`}
-            </button>
-          }
         >
-          {cart.length === 0 && <p className="muted">Votre panier est vide.</p>}
-          <ul className="cart-lines">
-            {priced.map((l) => (
-              <li key={l.key} className="cart-line">
-                <span className="cart-qty">{l.qty} ×</span>
-                <div className="cart-info">
-                  <div className="cart-name">
-                    {l.item.name}
-                    {soldOutIds.has(l.item.id) && <span className="status status-annulee tag">Épuisé</span>}
-                    {l.gone && <span className="status status-annulee tag">Plus à la carte</span>}
-                  </div>
-                  {optionSummary(l.item, l.options) && <div className="muted small">{optionSummary(l.item, l.options)}</div>}
-                  {l.note && <div className="muted small">« {l.note} »</div>}
-                </div>
-                <div className="cart-right">
-                  <span className="price">{euro(l.price * l.qty)}</span>
-                  <button type="button" className="link small" onClick={() => setCart((c) => c.filter((x) => x.key !== l.key))}>
-                    Retirer<span className="sr-only"> {l.item.name}</span>
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-          {error && <Alert>{error}</Alert>}
-          <div className="cart-total">
-            <span>Total</span>
-            <strong className="price">{euro(total)}</strong>
-          </div>
-          <p className="muted small">{brand.paymentNote}</p>
-        </Modal>
+          {isTakeaway && <TakeawayFields value={pickup} total={total} onChange={setPickup} />}
+        </CartSheet>
       )}
     </div>
   );

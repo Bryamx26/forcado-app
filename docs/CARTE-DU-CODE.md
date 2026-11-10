@@ -30,6 +30,9 @@ graph LR
     auth --> security
     app --> catalog[server/catalog.js<br/>carte, photos]
     catalog --> menu[server/menu.js<br/>carte de départ]
+    app --> routes[server/routes/*<br/>menu, admin, commandes, stats]
+    routes --> orders[server/orders.js<br/>règles des commandes]
+    orders --> shared[shared/*<br/>commun navigateur + serveur]
     app --> store[server/store.js<br/>Redis ou fichier]
     app --> config[server/config.js<br/>marque, légal, éditeur]
   end
@@ -45,6 +48,13 @@ graph LR
 | Changer le nom, les couleurs, les infos légales | `server/config.js` (ou variables `BRAND_*`, `LEGAL_*`, `VENDOR_*`) |
 | Changer l'apparence (couleurs, polices, composants) | `DESIGN.md`, tokens dans `src/theme.css`, styles dans `src/styles.css`, composants partagés dans `src/components/ui.jsx` |
 | Changer la carte | Espace employés, onglet Carte (logique : `server/catalog.js`, carte de départ : `server/menu.js`) |
-| Ajouter une route d'API | `server/app.js` |
+| Ajouter une route d'API | un routeur de `server/routes/`, branché dans `server/app.js` |
+| Règles des commandes (prix, options, statuts) | `server/orders.js`, `shared/options.js`, `shared/orderStatus.js` (testés dans `test/`) |
+| Traductions de l'interface client | `shared/i18n/` (fr, nl, en, pt) |
+| Allergènes | `shared/allergens.js` |
+| Cuisine, attente, écran de salle | `shared/kitchen.js`, `server/queue.js`, `src/pages/staff/Kitchen.jsx`, `src/pages/ReadyBoard.jsx` |
+| Notifications « prête » | `server/push.js`, `server/orderEvents.js`, `public/sw.js`, `src/push.js` |
+| À emporter, créneaux | `shared/pickup.js`, `server/takeaway.js` |
+| Statistiques | `shared/stats.js`, `server/routes/stats.js`, `src/pages/staff/Stats.jsx` |
 | Ajouter une page publique | `src/pages/site/`, `SITE_PAGES` dans `src/App.jsx`, `src/seo.js`, rewrites de `vercel.json` |
 | En-têtes de sécurité, limites anti-abus | `server/security.js` (et `vercel.json` pour les pages statiques) |

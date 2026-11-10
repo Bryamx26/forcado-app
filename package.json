@@ -6,14 +6,16 @@
     "dev": "concurrently -n api,web \"node --watch server/index.js --dev\" \"vite\"",
     "build": "vite build && node scripts/seo.js",
     "start": "node server/index.js",
-    "qr": "node scripts/qr.js"
+    "qr": "node scripts/qr.js",
+    "test": "node --test \"test/*.test.js\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@upstash/redis": "^1.39.0",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@fontsource/figtree": "^5.3.0",

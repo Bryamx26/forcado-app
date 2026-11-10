@@ -28,7 +28,7 @@
       "destination": "/confidentialite/index.html"
     },
     {
-      "source": "/(table|comptoir)(.*)",
+      "source": "/(table|comptoir|ecran|emporter)(.*)",
       "destination": "/app.html"
     },
     {
@@ -67,7 +67,7 @@
       ]
     },
     {
-      "source": "/(table|comptoir)(.*)",
+      "source": "/(table|comptoir|ecran|emporter)(.*)",
       "headers": [
         {
           "key": "X-Robots-Tag",
