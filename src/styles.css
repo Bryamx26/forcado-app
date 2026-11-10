@@ -698,3 +698,4 @@ body.modal-open .toasts { display: none; }
 .stats-table th, .stats-table td { text-align: left; padding: var(--space-2); border-bottom: 1px solid var(--border-soft); }
 .stats-table td { font-variant-numeric: tabular-nums; }
 .stats-page .stats { margin-top: var(--space-4); }
+@media (max-width: 700px) { .board-columns { grid-template-columns: 1fr; } .ready-board { padding: var(--space-4); } }
